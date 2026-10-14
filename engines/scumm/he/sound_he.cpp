@@ -30,6 +30,8 @@
 #include "scumm/util.h"
 
 #include "common/config-manager.h"
+#include "common/file.h"
+#include "common/tokenizer.h"
 #include "common/memstream.h"
 #include "common/timer.h"
 #include "common/util.h"
@@ -74,6 +76,41 @@ SoundHE::SoundHE(ScummEngine *parent, Audio::Mixer *mixer, Common::Mutex *mutex)
 	_heMixer = new HEMixer(_mixer, _vm, useMilesSoundSystem);
 
 	_learnMode = ConfMan.hasKey("learn_mode") && ConfMan.getBool("learn_mode");
+	if (_learnMode)
+		loadVoiceTranslations();
+}
+
+void SoundHE::loadVoiceTranslations() {
+	// Tab separated lines: <talkie offset> <original text> <translation>
+	Common::String filename = ConfMan.hasKey("learn_translation") ? ConfMan.get("learn_translation") : "learn_translation.tsv";
+
+	Common::File file;
+	if (!file.open(Common::Path(filename)))
+		return;
+
+	while (!file.eos() && !file.err()) {
+		Common::String line = file.readLine();
+		if (line.empty() || !Common::isDigit(line[0]))
+			continue;
+
+		Common::StringTokenizer fields(line, "\t");
+		uint32 offset = (uint32)atol(fields.nextToken().c_str());
+		fields.nextToken();
+		Common::String translation = fields.nextToken();
+		translation.trim();
+
+		if (offset && !translation.empty())
+			_voiceTranslations[offset] = Common::U32String(translation, Common::kUtf8);
+	}
+
+	debug(1, "SoundHE: Loaded %d voice translations from %s", _voiceTranslations.size(), filename.c_str());
+}
+
+const Common::U32String *SoundHE::getLastVoiceTranslation() const {
+	if (!_voiceTranslations.contains(_lastVoiceOffset))
+		return nullptr;
+
+	return &_voiceTranslations[_lastVoiceOffset];
 }
 
 SoundHE::~SoundHE() {

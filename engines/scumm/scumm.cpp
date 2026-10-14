@@ -37,6 +37,11 @@
 #include "gui/message.h"
 
 #include "graphics/cursorman.h"
+#include "graphics/font.h"
+#include "graphics/fontman.h"
+#include "graphics/palette.h"
+#include "graphics/paletteman.h"
+#include "graphics/fonts/ttf.h"
 #include "graphics/macgui/macfontmanager.h"
 
 #include "scumm/akos.h"
@@ -743,6 +748,8 @@ ScummEngine_v60he::~ScummEngine_v60he() {
 		delete _hInFileTable[i];
 		delete _hOutFileTable[i];
 	}
+
+	delete _learnFont;
 }
 
 ScummEngine_v70he::ScummEngine_v70he(OSystem *syst, const DetectorResult &dr)
@@ -4254,9 +4261,68 @@ void ScummEngine_v60he::pauseEngineIntern(bool pause) {
 	ScummEngine::pauseEngineIntern(pause);
 }
 
+const Graphics::Font *ScummEngine_v60he::getLearnFont() {
+	if (!_learnFont) {
+#ifdef USE_FREETYPE2
+		_learnFont = Graphics::loadTTFFontFromArchive("NotoSans-Bold.ttf", 20, Graphics::kTTFSizeModeCharacter,
+			0, 0, Graphics::kTTFRenderModeMonochrome);
+#endif
+		if (!_learnFont)
+			return FontMan.getFontByUsage(Graphics::FontManager::kBigGUIFont);
+	}
+
+	return _learnFont;
+}
+
+Common::Rect ScummEngine_v60he::drawLearnTranslation(const Common::U32String &text, Graphics::Surface &backup) {
+	const Graphics::Font *font = getLearnFont();
+	const int margin = 8;
+	const int padding = 6;
+
+	Graphics::Surface *screen = _system->lockScreen();
+	if (!screen)
+		return Common::Rect();
+
+	Common::Array<Common::U32String> lines;
+	font->wordWrapText(text, screen->w - 2 * (margin + padding), lines);
+
+	const int lineHeight = font->getFontHeight() + 2;
+	Common::Rect box(margin, 0, screen->w - margin, 0);
+	box.top = MAX<int>(0, screen->h - margin - 2 * padding - lineHeight * lines.size());
+	box.bottom = screen->h - margin;
+
+	backup.copyFrom(screen->getSubArea(box));
+
+	uint32 boxColor, textColor;
+	if (screen->format.isCLUT8()) {
+		byte palette[256 * 3];
+		_system->getPaletteManager()->grabPalette(palette, 0, 256);
+		Graphics::PaletteLookup lookup(palette, 256);
+		boxColor = lookup.findBestColor(0, 0, 0);
+		textColor = lookup.findBestColor(255, 255, 255);
+	} else {
+		boxColor = screen->format.RGBToColor(0, 0, 0);
+		textColor = screen->format.RGBToColor(255, 255, 255);
+	}
+
+	screen->fillRect(box, boxColor);
+	for (uint i = 0; i < lines.size(); i++)
+		font->drawString(screen, lines[i], box.left + padding, box.top + padding + i * lineHeight,
+			box.width() - 2 * padding, textColor, Graphics::kTextAlignCenter);
+
+	_system->unlockScreen();
+	return box;
+}
+
 void ScummEngine_v60he::runLearnPause() {
 	SoundHE *sound = (SoundHE *)_sound;
 	PauseToken pt = pauseEngine();
+
+	Graphics::Surface backup;
+	Common::Rect box;
+	const Common::U32String *translation = sound->getLastVoiceTranslation();
+	if (translation)
+		box = drawLearnTranslation(*translation, backup);
 
 	_system->displayMessageOnOSD(Common::U32String("R: replay   Space: continue"));
 
@@ -4284,6 +4350,11 @@ void ScummEngine_v60he::runLearnPause() {
 
 		_system->updateScreen();
 		_system->delayMillis(10);
+	}
+
+	if (!box.isEmpty()) {
+		_system->copyRectToScreen(backup.getPixels(), backup.pitch, box.left, box.top, box.width(), box.height());
+		backup.free();
 	}
 
 	sound->finishLearnPause();

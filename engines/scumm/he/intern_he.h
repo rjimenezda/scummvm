@@ -33,6 +33,10 @@ class SeekableReadStream;
 class SeekableWriteStream;
 }
 
+namespace Graphics {
+class Font;
+}
+
 namespace Scumm {
 
 #define MAGIC_ARRAY_NUMBER 0x33539000
@@ -84,6 +88,14 @@ public:
 	void setHETimer(int timer);
 	void pauseHETimers(bool pause);
 	void runLearnPause();
+
+private:
+	Graphics::Font *_learnFont = nullptr;
+
+	const Graphics::Font *getLearnFont();
+	Common::Rect drawLearnTranslation(const Common::U32String &text, Graphics::Surface &backup);
+
+public:
 
 #ifdef ENABLE_HE
 public:

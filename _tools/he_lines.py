@@ -6,7 +6,11 @@ sentence that follows it, and optionally exports the matching audio from the
 speech file (.he2) as WAV.
 
 Usage:
-    he_lines.py GAME_DIR [-o lines.csv] [--wav OUT_DIR]
+    he_lines.py GAME_DIR [-o lines.csv] [--wav OUT_DIR] [--tsv learn_translation.tsv]
+
+--tsv writes a translation template for ScummVM's learn mode: tab separated
+offset, text, translation (empty). Fill in the third column and save it in the
+game directory as learn_translation.tsv.
 
 CSV columns: offset, length, uses, text
   offset  byte offset of the TALK block in the .he2 file (the line's stable ID,
@@ -123,6 +127,7 @@ def main():
     ap.add_argument('game_dir', type=Path)
     ap.add_argument('-o', '--output', type=Path, help='CSV file (default: stdout)')
     ap.add_argument('--wav', type=Path, help='directory to export <offset>.wav files into')
+    ap.add_argument('--tsv', type=Path, help='write a translation template (offset, text, translation)')
     args = ap.parse_args()
 
     rooms, _ = load(find_file(args.game_dir, '.he1'), b'LECF')
@@ -149,6 +154,13 @@ def main():
         writer.writerow([offset, e['length'], e['uses'], ' || '.join(e['texts'])])
     if args.output:
         out.close()
+
+    if args.tsv:
+        args.tsv.parent.mkdir(parents=True, exist_ok=True)
+        with open(args.tsv, 'w', encoding='utf-8') as f:
+            f.write('offset\ttext\ttranslation\n')
+            for offset, e in sorted(lines.items()):
+                f.write(f"{offset}\t{' || '.join(e['texts'])}\t\n")
 
     if args.wav:
         args.wav.mkdir(parents=True, exist_ok=True)

@@ -23,7 +23,9 @@
 #define SCUMM_HE_SOUND_HE_H
 
 #include "common/scummsys.h"
+#include "common/hashmap.h"
 #include "common/mutex.h"
+#include "common/ustr.h"
 #include "scumm/sound.h"
 #include "scumm/he/mixer_he.h"
 #include "audio/audiostream.h"
@@ -258,6 +260,7 @@ public:
 	bool isLearnPausePending() const { return _learnPausePending; }
 	void replayLastVoice();
 	void finishLearnPause();
+	const Common::U32String *getLastVoiceTranslation() const;
 	void stopDigitalSound(int sound);
 	void createSound(int snd1id, int snd2id);
 	int getChannelPosition(int channel);
@@ -279,6 +282,9 @@ private:
 	uint32 _lastVoiceOffset = 0;
 	uint32 _lastVoiceLength = 0;
 	Audio::SoundHandle _voiceReplayHandle;
+	Common::HashMap<uint32, Common::U32String> _voiceTranslations;
+
+	void loadVoiceTranslations();
 	bool _inSoundCallbackFlag = false;
 	int _soundCallbacksQueueSize = 0;
 	int _soundAlreadyInQueueCount = 0;
