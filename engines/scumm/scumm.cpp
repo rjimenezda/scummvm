@@ -2940,6 +2940,9 @@ Common::Error ScummEngine::go() {
 
 			if (_game.heversion >= 60) {
 				((SoundHE *)_sound)->feedMixer();
+
+				if (((SoundHE *)_sound)->isLearnPausePending())
+					((ScummEngine_v60he *)this)->runLearnPause();
 			}
 
 			if (VAR_LAST_FRAME_SCUMM_TIME != 0xFF)
@@ -4249,6 +4252,41 @@ void ScummEngine_v60he::pauseEngineIntern(bool pause) {
 	pauseHETimers(pause);
 
 	ScummEngine::pauseEngineIntern(pause);
+}
+
+void ScummEngine_v60he::runLearnPause() {
+	SoundHE *sound = (SoundHE *)_sound;
+	PauseToken pt = pauseEngine();
+
+	_system->displayMessageOnOSD(Common::U32String("R: replay   Space: continue"));
+
+	bool done = false;
+	while (!done && !shouldQuit()) {
+		Common::Event event;
+		while (_eventMan->pollEvent(event)) {
+			if (event.type != Common::EVENT_KEYDOWN || event.kbdRepeat)
+				continue;
+
+			switch (event.kbd.keycode) {
+			case Common::KEYCODE_r:
+				sound->replayLastVoice();
+				break;
+			case Common::KEYCODE_SPACE:
+			case Common::KEYCODE_RETURN:
+			case Common::KEYCODE_KP_ENTER:
+			case Common::KEYCODE_PERIOD:
+				done = true;
+				break;
+			default:
+				break;
+			}
+		}
+
+		_system->updateScreen();
+		_system->delayMillis(10);
+	}
+
+	sound->finishLearnPause();
 }
 
 void ScummEngine::pauseGame() {

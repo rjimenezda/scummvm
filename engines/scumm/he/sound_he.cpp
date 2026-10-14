@@ -72,6 +72,8 @@ SoundHE::SoundHE(ScummEngine *parent, Audio::Mixer *mixer, Common::Mutex *mutex)
 		parent->_game.id == GID_PJGAMES;
 
 	_heMixer = new HEMixer(_mixer, _vm, useMilesSoundSystem);
+
+	_learnMode = ConfMan.hasKey("learn_mode") && ConfMan.getBool("learn_mode");
 }
 
 SoundHE::~SoundHE() {
@@ -660,7 +662,10 @@ void SoundHE::digitalSoundCallback(int message, int channel, bool earlyCallback)
 			// In the original this was used to prevent an edge case bug
 			// which caused recursive resource accesses/allocations.
 			// I think there's no harm in doing that ourselves too...
-			if (_vm->_insideCreateResource == 0) {
+			if (_learnMode && message == HSND_SOUND_ENDED) {
+				// Keep the line "talking" until the learning pause is dismissed
+				_learnPausePending = true;
+			} else if (_vm->_insideCreateResource == 0) {
 				_vm->stopTalk();
 			} else {
 				_stopActorTalkingFlag = true;
@@ -1538,7 +1543,60 @@ void SoundHE::playVoice(uint32 offset, uint32 length) {
 	ptr = _vm->getResourceAddress(rtSound, 1);
 	file.read(ptr, length);
 
+	_lastVoiceOffset = offset;
+	_lastVoiceLength = length;
+
 	addSoundToQueue(HSND_TALKIE_SLOT, 0, talkieChannel, 0, HSND_BASE_FREQ_FACTOR, HSND_SOUND_PAN_CENTER, HSND_MAX_VOLUME);
+}
+
+void SoundHE::replayLastVoice() {
+	_mixer->stopHandle(_voiceReplayHandle);
+
+	if (_lastVoiceOffset == 0 || _lastVoiceLength == 0)
+		return;
+
+	ScummFile file(_vm);
+	if (!_vm->openFile(file, Common::Path(_sfxFilename))) {
+		warning("SoundHE::replayLastVoice(): Could not open speech file %s", _sfxFilename.c_str());
+		return;
+	}
+
+	file.setEnc(_sfxFileEncByte);
+	file.seek(_lastVoiceOffset, SEEK_SET);
+
+	byte *block = (byte *)malloc(_lastVoiceLength);
+	if (!block)
+		return;
+
+	file.read(block, _lastVoiceLength);
+
+	const byte *sdat = _vm->findResource(MKTAG('S', 'D', 'A', 'T'), block);
+	if (!sdat) {
+		warning("SoundHE::replayLastVoice(): No SDAT block in voice at offset %d", _lastVoiceOffset);
+		free(block);
+		return;
+	}
+
+	uint32 size = READ_BE_UINT32(sdat + 4) - 8;
+	int frequency = READ_LE_UINT16(block + HSND_RES_OFFSET_FREQUENCY);
+
+	byte *samples = (byte *)malloc(size);
+	if (!samples) {
+		free(block);
+		return;
+	}
+
+	memcpy(samples, sdat + 8, size);
+	free(block);
+
+	Audio::AudioStream *stream = Audio::makeRawStream(samples, size, frequency, Audio::FLAG_UNSIGNED);
+	_mixer->playStream(Audio::Mixer::kSpeechSoundType, &_voiceReplayHandle, stream);
+}
+
+void SoundHE::finishLearnPause() {
+	_mixer->stopHandle(_voiceReplayHandle);
+	_learnPausePending = false;
+	_vm->stopTalk();
 }
 
 void SoundHE::playVoiceFile(char *filename) {

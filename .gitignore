@@ -316,3 +316,6 @@ __pycache__/
 #Ignore Claude instruction files
 CLAUDE.md
 .claude
+
+# Local game data for testing
+/_games/

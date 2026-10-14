@@ -83,6 +83,7 @@ public:
 	int getHETimer(int timer);
 	void setHETimer(int timer);
 	void pauseHETimers(bool pause);
+	void runLearnPause();
 
 #ifdef ENABLE_HE
 public:

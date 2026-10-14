@@ -255,6 +255,9 @@ public:
 	void setupHEMusicFile();
 	void playVoice(uint32 offset, uint32 length);
 	void playVoiceFile(char *filename);
+	bool isLearnPausePending() const { return _learnPausePending; }
+	void replayLastVoice();
+	void finishLearnPause();
 	void stopDigitalSound(int sound);
 	void createSound(int snd1id, int snd2id);
 	int getChannelPosition(int channel);
@@ -269,6 +272,13 @@ protected:
 private:
 	int _heTalkOffset = 0;
 	bool _stopActorTalkingFlag = false;
+
+	// Language learning mode: pause after each voice line, allow replaying it
+	bool _learnMode = false;
+	bool _learnPausePending = false;
+	uint32 _lastVoiceOffset = 0;
+	uint32 _lastVoiceLength = 0;
+	Audio::SoundHandle _voiceReplayHandle;
 	bool _inSoundCallbackFlag = false;
 	int _soundCallbacksQueueSize = 0;
 	int _soundAlreadyInQueueCount = 0;
