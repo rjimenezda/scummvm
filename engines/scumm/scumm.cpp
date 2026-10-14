@@ -67,6 +67,7 @@
 #include "scumm/he/animation_he.h"
 #include "scumm/he/font_he.h"
 #include "scumm/he/intern_he.h"
+#include "scumm/he/learn_panel_he.h"
 #include "scumm/he/logic_he.h"
 #include "scumm/he/sound_he.h"
 #include "scumm/object.h"
@@ -4274,74 +4275,51 @@ const Graphics::Font *ScummEngine_v60he::getLearnFont() {
 	return _learnFont;
 }
 
-Common::Rect ScummEngine_v60he::drawLearnTranslation(const Common::U32String &text, Graphics::Surface &backup) {
-	const Graphics::Font *font = getLearnFont();
-	const int margin = 8;
-	const int padding = 6;
-
-	Graphics::Surface *screen = _system->lockScreen();
-	if (!screen)
-		return Common::Rect();
-
-	Common::Array<Common::U32String> lines;
-	font->wordWrapText(text, screen->w - 2 * (margin + padding), lines);
-
-	const int lineHeight = font->getFontHeight() + 2;
-	Common::Rect box(margin, 0, screen->w - margin, 0);
-	box.top = MAX<int>(0, screen->h - margin - 2 * padding - lineHeight * lines.size());
-	box.bottom = screen->h - margin;
-
-	backup.copyFrom(screen->getSubArea(box));
-
-	uint32 boxColor, textColor;
-	if (screen->format.isCLUT8()) {
-		byte palette[256 * 3];
-		_system->getPaletteManager()->grabPalette(palette, 0, 256);
-		Graphics::PaletteLookup lookup(palette, 256);
-		boxColor = lookup.findBestColor(0, 0, 0);
-		textColor = lookup.findBestColor(255, 255, 255);
-	} else {
-		boxColor = screen->format.RGBToColor(0, 0, 0);
-		textColor = screen->format.RGBToColor(255, 255, 255);
-	}
-
-	screen->fillRect(box, boxColor);
-	for (uint i = 0; i < lines.size(); i++)
-		font->drawString(screen, lines[i], box.left + padding, box.top + padding + i * lineHeight,
-			box.width() - 2 * padding, textColor, Graphics::kTextAlignCenter);
-
-	_system->unlockScreen();
-	return box;
-}
-
 void ScummEngine_v60he::runLearnPause() {
 	SoundHE *sound = (SoundHE *)_sound;
 	PauseToken pt = pauseEngine();
 
-	Graphics::Surface backup;
-	Common::Rect box;
 	const Common::U32String *translation = sound->getLastVoiceTranslation();
-	if (translation)
-		box = drawLearnTranslation(*translation, backup);
-
-	_system->displayMessageOnOSD(Common::U32String("R: replay   Space: continue"));
+	LearnPanel panel(_system, getLearnFont(), FontMan.getFontByUsage(Graphics::FontManager::kGUIFont));
+	panel.show(translation ? *translation : Common::U32String());
 
 	bool done = false;
 	while (!done && !shouldQuit()) {
 		Common::Event event;
 		while (_eventMan->pollEvent(event)) {
-			if (event.type != Common::EVENT_KEYDOWN || event.kbdRepeat)
-				continue;
-
-			switch (event.kbd.keycode) {
-			case Common::KEYCODE_r:
-				sound->replayLastVoice();
+			switch (event.type) {
+			case Common::EVENT_MOUSEMOVE:
+				panel.setHovered(panel.buttonAt(event.mouse));
 				break;
-			case Common::KEYCODE_SPACE:
-			case Common::KEYCODE_RETURN:
-			case Common::KEYCODE_KP_ENTER:
-			case Common::KEYCODE_PERIOD:
-				done = true;
+			case Common::EVENT_LBUTTONDOWN:
+				switch (panel.buttonAt(event.mouse)) {
+				case LearnPanel::kButtonReplay:
+					sound->replayLastVoice();
+					break;
+				case LearnPanel::kButtonContinue:
+					done = true;
+					break;
+				default:
+					break;
+				}
+				break;
+			case Common::EVENT_KEYDOWN:
+				if (event.kbdRepeat)
+					break;
+
+				switch (event.kbd.keycode) {
+				case Common::KEYCODE_r:
+					sound->replayLastVoice();
+					break;
+				case Common::KEYCODE_SPACE:
+				case Common::KEYCODE_RETURN:
+				case Common::KEYCODE_KP_ENTER:
+				case Common::KEYCODE_PERIOD:
+					done = true;
+					break;
+				default:
+					break;
+				}
 				break;
 			default:
 				break;
@@ -4352,11 +4330,7 @@ void ScummEngine_v60he::runLearnPause() {
 		_system->delayMillis(10);
 	}
 
-	if (!box.isEmpty()) {
-		_system->copyRectToScreen(backup.getPixels(), backup.pitch, box.left, box.top, box.width(), box.height());
-		backup.free();
-	}
-
+	panel.hide();
 	sound->finishLearnPause();
 }
 

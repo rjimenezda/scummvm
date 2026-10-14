@@ -93,7 +93,6 @@ private:
 	Graphics::Font *_learnFont = nullptr;
 
 	const Graphics::Font *getLearnFont();
-	Common::Rect drawLearnTranslation(const Common::U32String &text, Graphics::Surface &backup);
 
 public:
 
