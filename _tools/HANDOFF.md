@@ -47,6 +47,8 @@ English-listening practice for Spanish-speaking kids.
   codes), picks one word seeded by the voice offset (skips filler words, <3 letters, names, lines <3 words),
   blanks it with spaces in the game's own subtitle, and keeps the exercise for the panel: 3 word buttons
   (keys 1-3), decoys from a pool of words seen in other lines/the TSV. Wrong = red, right = green + fills gap.
+  `learn_exercise_mode=choice_required` ("Multiple choice (answer to continue)") greys out ▶ and ignores
+  Space/Enter until the right word is picked (`LearnPanel::canContinue()`); lines without an exercise aren't locked.
 - **Launcher options** (Engine tab, HE games only): pause / translations / exercise + mode dropdown, wired in
   `ScummGameOptionsWidget` (`dialogs.cpp`) with greying when pause is off. Defined in `metaengine.cpp`.
 

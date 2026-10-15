@@ -265,7 +265,8 @@ public:
 
 private:
 	enum {
-		kLearnExerciseChoice = 0
+		kLearnExerciseChoice = 0,
+		kLearnExerciseChoiceRequired = 1
 	};
 
 	enum {

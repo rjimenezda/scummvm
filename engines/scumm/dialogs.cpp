@@ -1305,6 +1305,7 @@ ScummGameOptionsWidget::ScummGameOptionsWidget(GuiObject *boss, const Common::St
 				_learnExerciseModeLabel = new GUI::StaticTextWidget(widgetsBoss(), _dialogLayout + ".learnExerciseModeLabel", _("Exercise mode:"));
 				_learnExerciseModePopUp = new GUI::PopUpWidget(widgetsBoss(), _dialogLayout + ".learnExerciseMode");
 				_learnExerciseModePopUp->appendEntry(_("Multiple choice"), kLearnExerciseChoice);
+				_learnExerciseModePopUp->appendEntry(_("Multiple choice (answer to continue)"), kLearnExerciseChoiceRequired);
 #ifdef USE_SID_AUDIO
 			} else if (strcmp(_options[i].configOption, "c64_sid_type") == 0) {
 				_c64SidTypeCheckbox = checkbox;
@@ -1340,7 +1341,8 @@ void ScummGameOptionsWidget::load() {
 		_semiSmoothScrollCheckbox->setEnabled(_smoothScrollCheckbox->getState());
 
 	if (_learnExerciseModePopUp) {
-		_learnExerciseModePopUp->setSelectedTag(kLearnExerciseChoice);
+		const bool required = ConfMan.get("learn_exercise_mode", _domain) == "choice_required";
+		_learnExerciseModePopUp->setSelectedTag(required ? kLearnExerciseChoiceRequired : kLearnExerciseChoice);
 	}
 
 	updateLearnWidgets();
@@ -1382,7 +1384,7 @@ bool ScummGameOptionsWidget::save() {
 	}
 
 	if (_learnExerciseModePopUp)
-		ConfMan.set("learn_exercise_mode", "choice", _domain);
+		ConfMan.set("learn_exercise_mode", _learnExerciseModePopUp->getSelectedTag() == kLearnExerciseChoiceRequired ? "choice_required" : "choice", _domain);
 
 	return true;
 }

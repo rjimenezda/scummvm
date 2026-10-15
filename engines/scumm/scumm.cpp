@@ -4293,6 +4293,7 @@ void ScummEngine_v60he::runLearnPause() {
 
 	LearnPanel panel(_system, getLearnFont(), FontMan.getFontByUsage(_screenWidth >= 640 ? Graphics::FontManager::kGUIFont : Graphics::FontManager::kConsoleFont));
 	panel.show(sound->getLastVoiceText(), translation ? *translation : Common::U32String(), hasExercise ? &exercise : nullptr);
+	panel.setAnswerRequired(ConfMan.get("learn_exercise_mode") == "choice_required");
 
 	bool done = false;
 	while (!done && !shouldQuit()) {
@@ -4307,7 +4308,7 @@ void ScummEngine_v60he::runLearnPause() {
 				if (button == LearnPanel::kButtonReplay)
 					sound->replayLastVoice();
 				else if (button == LearnPanel::kButtonContinue)
-					done = true;
+					done = panel.canContinue();
 				else if (button == LearnPanel::kButtonTranslation)
 					panel.toggleTranslation();
 				else if (button >= 0)
@@ -4329,7 +4330,7 @@ void ScummEngine_v60he::runLearnPause() {
 				case Common::KEYCODE_RETURN:
 				case Common::KEYCODE_KP_ENTER:
 				case Common::KEYCODE_PERIOD:
-					done = true;
+					done = panel.canContinue();
 					break;
 				case Common::KEYCODE_1:
 				case Common::KEYCODE_2:

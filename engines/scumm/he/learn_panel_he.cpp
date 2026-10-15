@@ -166,6 +166,7 @@ bool LearnPanel::choose(int choice) {
 		return false;
 
 	if (choice == _exercise.correctChoice) {
+		// Also enables the continue button when the answer is required
 		_solved = true;
 		_sentenceLines.clear();
 		_font->wordWrapText(displaySentence(), _textArea.width(), _sentenceLines);
@@ -175,6 +176,11 @@ bool LearnPanel::choose(int choice) {
 
 	draw();
 	return _solved;
+}
+
+void LearnPanel::setAnswerRequired(bool required) {
+	_answerRequired = required;
+	draw();
 }
 
 void LearnPanel::toggleTranslation() {
@@ -275,6 +281,7 @@ LearnPanel::Colors LearnPanel::getColors(const Graphics::Surface &screen) const 
 		{  90, 160, 255 }, // replay hover
 		{  40, 160,  70 }, // continue
 		{  90, 210, 110 }, // continue hover
+		{  70,  70,  80 }, // continue disabled
 		{  70,  70, 110 }, // choice
 		{ 120, 120, 180 }, // choice hover
 		{ 200,  50,  50 }, // wrong choice
@@ -297,7 +304,7 @@ LearnPanel::Colors LearnPanel::getColors(const Graphics::Surface &screen) const 
 			c[i] = screen.format.RGBToColor(rgb[i][0], rgb[i][1], rgb[i][2]);
 	}
 
-	Colors colors = { c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7], c[8], c[9], c[10], c[11], c[12] };
+	Colors colors = { c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7], c[8], c[9], c[10], c[11], c[12], c[13] };
 	return colors;
 }
 
@@ -318,7 +325,10 @@ void LearnPanel::draw() {
 	drawSpeaker(*screen, _replayButton, colors.icon);
 	drawHint(*screen, _replayButton, "R", colors.text);
 
-	screen->drawRoundRect(_continueButton, px(10), _hovered == kButtonContinue ? colors.contHover : colors.cont, true);
+	uint32 contColor = _hovered == kButtonContinue ? colors.contHover : colors.cont;
+	if (!canContinue())
+		contColor = colors.contDisabled;
+	screen->drawRoundRect(_continueButton, px(10), contColor, true);
 	drawPlay(*screen, _continueButton, colors.icon);
 	drawHint(*screen, _continueButton, "Space", colors.text);
 

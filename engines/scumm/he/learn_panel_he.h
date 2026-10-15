@@ -60,6 +60,9 @@ public:
 	void setHovered(int button);
 
 	bool hasExercise() const { return _hasExercise; }
+	// With the answer required, continuing waits until the exercise is solved
+	void setAnswerRequired(bool required);
+	bool canContinue() const { return !_answerRequired || !_hasExercise || _solved; }
 	// Returns true if the choice is the right answer
 	bool choose(int choice);
 	// Hides or shows the translation of the current line, e.g. if it gets in the way
@@ -67,7 +70,7 @@ public:
 
 private:
 	struct Colors {
-		uint32 panel, replay, replayHover, cont, contHover, choice, choiceHover, wrong, right, icon, text, toggleOn, toggleOff;
+		uint32 panel, replay, replayHover, cont, contHover, contDisabled, choice, choiceHover, wrong, right, icon, text, toggleOn, toggleOff;
 	};
 
 	OSystem *_system;
@@ -80,6 +83,7 @@ private:
 	LearnExercise _exercise;
 	bool _hasExercise = false;
 	bool _solved = false;
+	bool _answerRequired = false;
 	bool _wrong[LearnExercise::kNumChoices];
 
 	Common::Array<Common::U32String> _sentenceLines;
