@@ -34,6 +34,7 @@ struct LearnExercise {
 	static const int kNumChoices = 3;
 
 	Common::String before;
+	uint blankStart;
 	Common::String answer;
 	Common::String after;
 	Common::String choices[kNumChoices];
@@ -57,8 +58,14 @@ private:
 	WordSet _names;
 };
 
-// Strips the control codes from an HE talk string, leaving the printable text
-Common::String extractLearnText(const byte *msg, int heversion);
+// Printable text of an HE talk string, without its control codes
+struct LearnTalkText {
+	Common::String text;
+	Common::Array<uint> positions; // Index in the talk string of each character of text
+	uint32 voiceOffset;
+};
+
+LearnTalkText extractLearnText(const byte *msg, int heversion);
 
 bool buildLearnExercise(const Common::String &sentence, uint32 seed, const LearnWordPool &pool, LearnExercise &exercise);
 

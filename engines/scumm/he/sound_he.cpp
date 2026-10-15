@@ -117,24 +117,45 @@ const Common::U32String *SoundHE::getLastVoiceTranslation() {
 	return &_voiceTranslations[_lastVoiceOffset];
 }
 
-void SoundHE::setLastTalkText(const Common::String &text) {
-	debug(1, "SoundHE: Talk text \"%s\"", text.c_str());
-	_lastTalkText = text;
-	if (!text.empty())
-		_learnWordPool.addSentence(text);
-}
+void SoundHE::prepareTalk(byte *talkString) {
+	LearnTalkText talk = extractLearnText(talkString, _vm->_game.heversion);
+	debug(1, "SoundHE: Talk text for voice %d \"%s\"", talk.voiceOffset, talk.text.c_str());
 
-bool SoundHE::getLastVoiceExercise(LearnExercise &exercise) {
-	if (!ConfMan.getBool("learn_exercise") || _lastVoiceText.empty())
-		return false;
+	_talkHasExercise = false;
+	if (talk.text.empty())
+		return;
+
+	if (!ConfMan.getBool("learn_pause") || !ConfMan.getBool("learn_exercise")) {
+		_learnWordPool.addSentence(talk.text);
+		return;
+	}
 
 	// The translation file also feeds the pool of words used as wrong choices
 	if (!_voiceTranslationsLoaded)
 		loadVoiceTranslations();
 
-	bool built = buildLearnExercise(_lastVoiceText, _lastVoiceOffset, _learnWordPool, exercise);
-	debug(1, "SoundHE: Exercise for voice %d \"%s\": %s", _lastVoiceOffset, _lastVoiceText.c_str(), built ? exercise.answer.c_str() : "none");
-	return built;
+	_learnWordPool.addSentence(talk.text);
+	if (!talk.voiceOffset)
+		return;
+
+	_talkHasExercise = buildLearnExercise(talk.text, talk.voiceOffset, _learnWordPool, _talkExercise);
+	if (!_talkHasExercise)
+		return;
+
+	debug(1, "SoundHE: Blanking \"%s\"", _talkExercise.answer.c_str());
+
+	// Blank the word in the game's own subtitle too. Spaces are used since
+	// the game fonts draw '_' and '-' at inconsistent heights.
+	for (uint i = 0; i < _talkExercise.answer.size(); i++)
+		talkString[talk.positions[_talkExercise.blankStart + i]] = ' ';
+}
+
+bool SoundHE::getLastVoiceExercise(LearnExercise &exercise) {
+	if (!ConfMan.getBool("learn_exercise") || !_voiceHasExercise)
+		return false;
+
+	exercise = _voiceExercise;
+	return true;
 }
 
 SoundHE::~SoundHE() {
@@ -1606,7 +1627,9 @@ void SoundHE::playVoice(uint32 offset, uint32 length) {
 
 	_lastVoiceOffset = offset;
 	_lastVoiceLength = length;
-	_lastVoiceText = _lastTalkText;
+	_voiceHasExercise = _talkHasExercise;
+	_voiceExercise = _talkExercise;
+	_talkHasExercise = false;
 
 	addSoundToQueue(HSND_TALKIE_SLOT, 0, talkieChannel, 0, HSND_BASE_FREQ_FACTOR, HSND_SOUND_PAN_CENTER, HSND_MAX_VOLUME);
 }

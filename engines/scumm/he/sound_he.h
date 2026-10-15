@@ -262,7 +262,8 @@ public:
 	void replayLastVoice();
 	void finishLearnPause();
 	const Common::U32String *getLastVoiceTranslation();
-	void setLastTalkText(const Common::String &text);
+	// Called when a line starts; may blank the exercise word in the talk string
+	void prepareTalk(byte *talkString);
 	bool getLastVoiceExercise(LearnExercise &exercise);
 	void stopDigitalSound(int sound);
 	void createSound(int snd1id, int snd2id);
@@ -286,8 +287,10 @@ private:
 	uint32 _lastVoiceLength = 0;
 	Audio::SoundHandle _voiceReplayHandle;
 	Common::HashMap<uint32, Common::U32String> _voiceTranslations;
-	Common::String _lastTalkText;
-	Common::String _lastVoiceText;
+	LearnExercise _talkExercise;
+	bool _talkHasExercise = false;
+	LearnExercise _voiceExercise;
+	bool _voiceHasExercise = false;
 	LearnWordPool _learnWordPool;
 
 	void loadVoiceTranslations();

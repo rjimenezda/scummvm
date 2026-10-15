@@ -169,44 +169,69 @@ bool LearnWordPool::pickDecoys(const Common::String &answer, uint32 seed, Common
 	return found == count;
 }
 
-Common::String extractLearnText(const byte *msg, int heversion) {
+LearnTalkText extractLearnText(const byte *msg, int heversion) {
 	// Argument sizes of the 0xFF control codes in HE60-71 strings
 	static const int classicArgs[16] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 14, 0, 2, 2, 3, 0 };
 	const byte modernCode = heversion >= 80 ? 127 : 64;
-	Common::String text;
+	LearnTalkText result;
+	result.voiceOffset = 0;
 
-	while (*msg) {
-		byte c = *msg;
+	uint pos = 0;
+	while (msg[pos]) {
+		byte c = msg[pos];
 		if (heversion >= 72 && c == modernCode) {
-			byte code = msg[1];
+			byte code = msg[pos + 1];
 			if (!code)
 				break;
-			msg += 2;
+			pos += 2;
 			if (code == 'T' || code == 't') {
-				while (*msg && *msg != modernCode)
-					msg++;
-				if (*msg)
-					msg++;
+				if (code == 'T')
+					result.voiceOffset = (uint32)atol((const char *)msg + pos);
+				while (msg[pos] && msg[pos] != modernCode)
+					pos++;
+				if (msg[pos])
+					pos++;
 			} else if (code == 'n') {
-				text += ' ';
+				result.text += ' ';
+				result.positions.push_back(pos - 2);
 			}
 		} else if (heversion < 72 && c == 0xFF) {
-			byte code = msg[1];
+			byte code = msg[pos + 1];
 			if (!code)
 				break;
-			if (code == 1)
-				text += ' ';
+			if (code == 1) {
+				result.text += ' ';
+				result.positions.push_back(pos);
+			} else if (code == 10 && !result.voiceOffset) {
+				const byte *b = msg + pos + 2;
+				result.voiceOffset = b[0] | (b[1] << 8) | (b[4] << 16) | (b[5] << 24);
+			}
 			// The arguments are binary and may contain zero bytes
-			msg += 2 + (code < ARRAYSIZE(classicArgs) ? classicArgs[code] : 0);
+			pos += 2 + (code < ARRAYSIZE(classicArgs) ? classicArgs[code] : 0);
 		} else {
-			if (c >= 32)
-				text += (char)c;
-			msg++;
+			if (c >= 32) {
+				result.text += (char)c;
+				result.positions.push_back(pos);
+			}
+			pos++;
 		}
 	}
 
-	text.trim();
-	return text;
+	// Trim, keeping positions in sync
+	uint first = 0, last = result.text.size();
+	while (first < last && Common::isSpace(result.text[first]))
+		first++;
+	while (last > first && Common::isSpace(result.text[last - 1]))
+		last--;
+	if (first > 0 || last < result.text.size()) {
+		Common::Array<uint> positions;
+		for (uint i = first; i < last; i++)
+			positions.push_back(result.positions[i]);
+		result.text = Common::String(result.text.c_str() + first, last - first);
+		result.positions = positions;
+	}
+
+	return result;
 }
 
 bool buildLearnExercise(const Common::String &sentence, uint32 seed, const LearnWordPool &pool, LearnExercise &exercise) {
@@ -224,6 +249,7 @@ bool buildLearnExercise(const Common::String &sentence, uint32 seed, const Learn
 
 	const WordSpan &blank = words[blankable[mixSeed(seed, 0) % blankable.size()]];
 	exercise.before = Common::String(sentence.c_str(), blank.start);
+	exercise.blankStart = blank.start;
 	exercise.answer = Common::String(sentence.c_str() + blank.start, blank.length);
 	exercise.after = Common::String(sentence.c_str() + blank.start + blank.length);
 
