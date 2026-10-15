@@ -27,6 +27,7 @@ English-listening practice for Spanish-speaking kids.
 | `freddi-win` | `_games/freddi1` | HE 71 | 640×480 | Spanish (1240 lines) |
 | `puttputt-win` | `_games/putt1` | HE 70 | 320×200 | Spanish (1215 lines) |
 | `pajama-win` | `_games/pajama1` | HE 100 ("Updated" re-release) | 640×480 | Spanish (2717 of 2730 lines; the 13 empty ones have no subtitle text) |
+| `spyfox` (add via launcher) | `_games/spyfox1` | HE 90 | 640×480 | Spanish (5087 lines, untested in game) |
 
 ## What's built
 - **Pause after each voiced line** (`learn_pause`): when the talkie voice ends (`HSND_SOUND_ENDED` on
