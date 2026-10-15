@@ -1205,6 +1205,10 @@ void ScummEngine_v72he::o72_arrayOps() {
 	switch (subOp) {
 	case SO_STRING:
 		copyScriptString(string, sizeof(string));
+		// Learn mode: 16-bit color games draw their subtitles from a copy of the
+		// talk string stored here, so the exercise word is blanked in it too
+		if (_game.features & GF_16BIT_COLOR)
+			((SoundHE *)_sound)->blankSubtitleText(string);
 		len = resStrLen(string);
 		data = defineArray(array, kStringArray, 0, 0, 0, len);
 		memcpy(data, string, len);

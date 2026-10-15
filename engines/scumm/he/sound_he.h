@@ -266,6 +266,8 @@ public:
 	const Common::U32String *getLastVoiceTranslation();
 	// Called when a line starts; may blank the exercise word in the talk string
 	void prepareTalk(byte *talkString);
+	// Blanks the exercise word in a subtitle string drawn by a script
+	void blankSubtitleText(byte *text);
 	bool getLastVoiceExercise(LearnExercise &exercise);
 	const Common::String &getLastVoiceText() const { return _voiceText; }
 	void stopDigitalSound(int sound);
@@ -293,6 +295,8 @@ private:
 	Common::HashMap<uint32, Common::U32String> _voiceTranslations;
 	Common::String _talkText;
 	Common::String _voiceText;
+	uint32 _talkVoiceOffset = 0;
+	uint32 _voiceTextOffset = 0;
 	LearnExercise _talkExercise;
 	bool _talkHasExercise = false;
 	LearnExercise _voiceExercise;

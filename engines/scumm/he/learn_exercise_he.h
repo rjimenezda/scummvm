@@ -66,7 +66,8 @@ struct LearnTalkText {
 	uint32 voiceOffset;
 };
 
-LearnTalkText extractLearnText(const byte *msg, int heversion);
+// Localized games tag their lines with "[ID]", which the engine never displays
+LearnTalkText extractLearnText(const byte *msg, int heversion, bool localized);
 
 // Text as it should be shown outside the game, e.g. '^' is drawn as an ellipsis by HE fonts
 Common::String learnDisplayText(const Common::String &text);

@@ -118,11 +118,12 @@ const Common::U32String *SoundHE::getLastVoiceTranslation() {
 }
 
 void SoundHE::prepareTalk(byte *talkString) {
-	LearnTalkText talk = extractLearnText(talkString, _vm->_game.heversion);
+	LearnTalkText talk = extractLearnText(talkString, _vm->_game.heversion, _vm->_game.features & GF_HE_LOCALIZED);
 	debug(1, "SoundHE: Talk text for voice %d \"%s\"", talk.voiceOffset, talk.text.c_str());
 
 	_talkHasExercise = false;
 	_talkText = talk.text;
+	_talkVoiceOffset = talk.voiceOffset;
 	if (talk.text.empty())
 		return;
 
@@ -149,6 +150,36 @@ void SoundHE::prepareTalk(byte *talkString) {
 	// the game fonts draw '_' and '-' at inconsistent heights.
 	for (uint i = 0; i < _talkExercise.answer.size(); i++)
 		talkString[talk.positions[_talkExercise.blankStart + i]] = ' ';
+}
+
+void SoundHE::blankSubtitleText(byte *text) {
+	// Some games (e.g. Spy Fox 3) draw subtitles as sprites from a script string
+	// instead of the talk string, possibly one line at a time.
+	bool useTalk = _talkHasExercise;
+	if (!useTalk && !_voiceHasExercise)
+		return;
+
+	const LearnExercise &exercise = useTalk ? _talkExercise : _voiceExercise;
+	const Common::String &sentence = useTalk ? _talkText : _voiceText;
+
+	LearnTalkText fragment = extractLearnText(text, _vm->_game.heversion, _vm->_game.features & GF_HE_LOCALIZED);
+	if (fragment.text.empty())
+		return;
+
+	// A string with its own voice code must belong to the current line
+	if (fragment.voiceOffset && fragment.voiceOffset != (useTalk ? _talkVoiceOffset : _voiceTextOffset))
+		return;
+
+	// The word is blanked only when it lies completely within this fragment
+	for (uint offset = sentence.find(fragment.text); offset != Common::String::npos; offset = sentence.find(fragment.text, offset + 1)) {
+		if (exercise.blankStart < offset || exercise.blankStart + exercise.answer.size() > offset + fragment.text.size())
+			continue;
+
+		debug(1, "SoundHE: Blanking script string \"%s\"", (const char *)text);
+		for (uint i = 0; i < exercise.answer.size(); i++)
+			text[fragment.positions[exercise.blankStart - offset + i]] = ' ';
+		return;
+	}
 }
 
 bool SoundHE::getLastVoiceExercise(LearnExercise &exercise) {
@@ -1640,6 +1671,7 @@ void SoundHE::playVoice(uint32 offset, uint32 length) {
 	_voiceHasExercise = _talkHasExercise;
 	_voiceExercise = _talkExercise;
 	_voiceText = _talkText;
+	_voiceTextOffset = _talkVoiceOffset;
 	_talkHasExercise = false;
 	_talkText.clear();
 

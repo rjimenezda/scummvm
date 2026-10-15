@@ -63,10 +63,15 @@ English-listening practice for Spanish-speaking kids.
 - HE < 71 runs at 320×200.
 - Some recordings are spliced sentence fragments ("...three..."), so their translations may read oddly.
 
+- Spy Fox 3 (`spyozon`) is HE **99** (`GF_HE_995`), so it runs the HE 90 opcodes, not the `o100_*` ones.
+  16-bit games don't draw the talk string; SF3 also stores each line in string array `var 313`
+  (`o72_arrayOps` `SO_STRING`) and a script draws it char by char (`readArray`) as sprites. The word is
+  blanked in that stored copy. Lines carry `[SPYFOX.8BF]` tags (`GF_HE_LOCALIZED`), which `extractLearnText` skips.
+
 ## Open ideas / next steps
 - User-test Pajama Sam with the Spanish file (watch for scripts acting behind the panel,
   lines not pausing, lip-sync after resume, whether the translations fit the voice timing).
 - Freddi and Putt-Putt translations are merged; Pajama Sam is done (commit: see git log).
 - Typing exercise mode (add to the dropdown in `dialogs.cpp`, input field in the panel).
-- Try a 16-bit colour game (Spy Fox 3, HE 100 `GF_16BIT_COLOR`, sprite subtitles).
+- Spy Fox 3: subtitle blanking works; no translation file yet.
 - Remove the `SoundHE:` debug traces before any cleanup/upstream attempt.
