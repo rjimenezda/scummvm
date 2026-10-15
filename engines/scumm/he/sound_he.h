@@ -259,12 +259,15 @@ public:
 	void playVoice(uint32 offset, uint32 length);
 	void playVoiceFile(char *filename);
 	bool isLearnPausePending() const { return _learnPausePending; }
+	// Time left to play when the line ended through an early callback
+	uint32 getLearnPauseDelay() const { return _learnPauseDelay; }
 	void replayLastVoice();
 	void finishLearnPause();
 	const Common::U32String *getLastVoiceTranslation();
 	// Called when a line starts; may blank the exercise word in the talk string
 	void prepareTalk(byte *talkString);
 	bool getLastVoiceExercise(LearnExercise &exercise);
+	const Common::String &getLastVoiceText() const { return _voiceText; }
 	void stopDigitalSound(int sound);
 	void createSound(int snd1id, int snd2id);
 	int getChannelPosition(int channel);
@@ -282,11 +285,14 @@ private:
 
 	// Language learning mode: pause after each voice line, allow replaying it
 	bool _learnPausePending = false;
+	uint32 _learnPauseDelay = 0;
 	bool _voiceTranslationsLoaded = false;
 	uint32 _lastVoiceOffset = 0;
 	uint32 _lastVoiceLength = 0;
 	Audio::SoundHandle _voiceReplayHandle;
 	Common::HashMap<uint32, Common::U32String> _voiceTranslations;
+	Common::String _talkText;
+	Common::String _voiceText;
 	LearnExercise _talkExercise;
 	bool _talkHasExercise = false;
 	LearnExercise _voiceExercise;

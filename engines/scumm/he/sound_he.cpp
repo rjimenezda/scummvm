@@ -122,6 +122,7 @@ void SoundHE::prepareTalk(byte *talkString) {
 	debug(1, "SoundHE: Talk text for voice %d \"%s\"", talk.voiceOffset, talk.text.c_str());
 
 	_talkHasExercise = false;
+	_talkText = talk.text;
 	if (talk.text.empty())
 		return;
 
@@ -744,9 +745,18 @@ void SoundHE::digitalSoundCallback(int message, int channel, bool earlyCallback)
 			// In the original this was used to prevent an edge case bug
 			// which caused recursive resource accesses/allocations.
 			// I think there's no harm in doing that ourselves too...
-			if (message == HSND_SOUND_ENDED && ConfMan.getBool("learn_pause")) {
-				// Keep the line "talking" until the learning pause is dismissed
+			if (message == HSND_SOUND_ENDED && ConfMan.getBool("learn_pause") && !_voiceText.empty()) {
+				// Keep the line "talking" until the learning pause is dismissed.
+				// Voices without text (sighs, yawns...) don't pause.
 				_learnPausePending = true;
+				_learnPauseDelay = 0;
+
+				// HE95+ scripts may ask to be told before the sound actually ends
+				if (earlyCallback && _vm->_game.heversion >= 95) {
+					int index = _vm->VAR_EARLY_CHAN_1_CALLBACK + channel;
+					if (index >= _vm->VAR_EARLY_CHAN_1_CALLBACK && index <= _vm->VAR_EARLY_CHAN_3_CALLBACK)
+						_learnPauseDelay = _vm->VAR(index) * 1000 / HSND_DEFAULT_FREQUENCY;
+				}
 			} else if (_vm->_insideCreateResource == 0) {
 				_vm->stopTalk();
 			} else {
@@ -1629,7 +1639,9 @@ void SoundHE::playVoice(uint32 offset, uint32 length) {
 	_lastVoiceLength = length;
 	_voiceHasExercise = _talkHasExercise;
 	_voiceExercise = _talkExercise;
+	_voiceText = _talkText;
 	_talkHasExercise = false;
+	_talkText.clear();
 
 	addSoundToQueue(HSND_TALKIE_SLOT, 0, talkieChannel, 0, HSND_BASE_FREQ_FACTOR, HSND_SOUND_PAN_CENTER, HSND_MAX_VOLUME);
 }

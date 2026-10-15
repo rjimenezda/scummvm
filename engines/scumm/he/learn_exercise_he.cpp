@@ -122,6 +122,8 @@ void LearnWordPool::addSentence(const Common::String &sentence) {
 		Common::String word(sentence.c_str() + words[i].start, words[i].length);
 		if (words[i].name)
 			_names[word] = true;
+		else if (Common::isLower(word[0]))
+			_lowercase[word] = true;
 		if (!words[i].blankable || isName(word))
 			continue;
 
@@ -209,8 +211,8 @@ LearnTalkText extractLearnText(const byte *msg, int heversion) {
 			// The arguments are binary and may contain zero bytes
 			pos += 2 + (code < ARRAYSIZE(classicArgs) ? classicArgs[code] : 0);
 		} else {
-			if (c >= 32) {
-				result.text += (char)c;
+			if (c >= 32 || c == '\t') {
+				result.text += c == '\t' ? ' ' : (char)c;
 				result.positions.push_back(pos);
 			}
 			pos++;
@@ -231,6 +233,23 @@ LearnTalkText extractLearnText(const byte *msg, int heversion) {
 		result.positions = positions;
 	}
 
+	return result;
+}
+
+Common::String learnDisplayText(const Common::String &text) {
+	Common::String result;
+	for (uint i = 0; i < text.size(); i++) {
+		if (text[i] != '^') {
+			result += text[i];
+			continue;
+		}
+
+		while (i + 1 < text.size() && text[i + 1] == '^')
+			i++;
+		result += "...";
+		if (i + 1 < text.size() && !Common::isSpace(text[i + 1]))
+			result += ' ';
+	}
 	return result;
 }
 

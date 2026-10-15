@@ -47,8 +47,8 @@ class LearnWordPool {
 public:
 	void addSentence(const Common::String &sentence);
 	bool pickDecoys(const Common::String &answer, uint32 seed, Common::String *decoys, int count) const;
-	// Words seen capitalized in the middle of a sentence, e.g. character names
-	bool isName(const Common::String &word) const { return _names.contains(word); }
+	// Words only ever seen capitalized in the middle of a sentence, e.g. character names
+	bool isName(const Common::String &word) const { return _names.contains(word) && !_lowercase.contains(word); }
 
 private:
 	typedef Common::HashMap<Common::String, bool, Common::IgnoreCase_Hash, Common::IgnoreCase_EqualTo> WordSet;
@@ -56,6 +56,7 @@ private:
 	Common::Array<Common::String> _words;
 	WordSet _known;
 	WordSet _names;
+	WordSet _lowercase;
 };
 
 // Printable text of an HE talk string, without its control codes
@@ -66,6 +67,9 @@ struct LearnTalkText {
 };
 
 LearnTalkText extractLearnText(const byte *msg, int heversion);
+
+// Text as it should be shown outside the game, e.g. '^' is drawn as an ellipsis by HE fonts
+Common::String learnDisplayText(const Common::String &text);
 
 bool buildLearnExercise(const Common::String &sentence, uint32 seed, const LearnWordPool &pool, LearnExercise &exercise);
 

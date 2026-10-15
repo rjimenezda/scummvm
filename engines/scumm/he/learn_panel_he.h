@@ -45,14 +45,15 @@ public:
 	enum Button {
 		kButtonNone = -1,
 		kButtonReplay = -2,
-		kButtonContinue = -3
+		kButtonContinue = -3,
+		kButtonTranslation = -4
 		// Values >= 0 are exercise choices
 	};
 
 	LearnPanel(OSystem *system, const Graphics::Font *font, const Graphics::Font *hintFont);
 	~LearnPanel();
 
-	void show(const Common::U32String &translation, const LearnExercise *exercise);
+	void show(const Common::String &sentence, const Common::U32String &translation, const LearnExercise *exercise);
 	void hide();
 
 	int buttonAt(const Common::Point &pos) const;
@@ -61,17 +62,21 @@ public:
 	bool hasExercise() const { return _hasExercise; }
 	// Returns true if the choice is the right answer
 	bool choose(int choice);
+	// Hides or shows the translation of the current line, e.g. if it gets in the way
+	void toggleTranslation();
 
 private:
 	struct Colors {
-		uint32 panel, replay, replayHover, cont, contHover, choice, choiceHover, wrong, right, icon, text;
+		uint32 panel, replay, replayHover, cont, contHover, choice, choiceHover, wrong, right, icon, text, toggleOn, toggleOff;
 	};
 
 	OSystem *_system;
 	const Graphics::Font *_font;
 	const Graphics::Font *_hintFont;
 
+	Common::String _sentence;
 	Common::U32String _translation;
+	bool _showTranslation = true;
 	LearnExercise _exercise;
 	bool _hasExercise = false;
 	bool _solved = false;
@@ -79,24 +84,28 @@ private:
 
 	Common::Array<Common::U32String> _sentenceLines;
 	Common::Array<Common::U32String> _translationLines;
-	Common::Rect _box, _textArea, _replayButton, _continueButton;
+	Common::Rect _box, _textArea, _replayButton, _continueButton, _translationButton;
 	Common::Rect _choiceButtons[LearnExercise::kNumChoices];
 	int _sentenceTop = 0, _translationTop = 0;
+	int _screenWidth = 640;
 
 	Graphics::Surface _backup;
 	int _hovered = kButtonNone;
 	bool _visible = false;
 	bool _cursorWasVisible = false;
 
+	int px(int size) const;
 	void showCursor();
 	void restoreCursor();
-	Common::U32String sentenceWithBlank() const;
+	Common::U32String displaySentence() const;
 	const Graphics::Font *translationFont() const;
 	void layout(int screenWidth, int screenHeight);
+	void relayout();
 	Colors getColors(const Graphics::Surface &screen) const;
 	void draw();
 	void drawSpeaker(Graphics::Surface &screen, const Common::Rect &r, uint32 color) const;
 	void drawPlay(Graphics::Surface &screen, const Common::Rect &r, uint32 color) const;
+	void drawBubble(Graphics::Surface &screen, const Common::Rect &r, uint32 color) const;
 	void drawHint(Graphics::Surface &screen, const Common::Rect &button, const char *hint, uint32 color) const;
 };
 

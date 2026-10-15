@@ -38,10 +38,10 @@ CLASSIC_CODE_ARGS = {9: 2, 10: 14, 12: 2, 13: 2, 14: 3}
 MODERN_TALKIE = re.compile(rb'([@\x7f])T(\d+),(\d+)\1')
 
 
-def find_file(game_dir, suffix):
-    matches = [p for p in game_dir.iterdir() if p.suffix.lower() == suffix]
+def find_file(game_dir, *suffixes):
+    matches = [p for p in game_dir.iterdir() if p.suffix.lower() in suffixes]
     if not matches:
-        sys.exit(f'No *{suffix} file in {game_dir}')
+        sys.exit(f'No {" or ".join("*" + s for s in suffixes)} file in {game_dir}')
     return matches[0]
 
 
@@ -73,7 +73,9 @@ def read_text(data, pos, classic, code_char=None):
             continue
         out.append(c)
         pos += 1
-    return out.decode('latin-1').strip()
+    # HE fonts draw '^' as an ellipsis
+    text = re.sub(r'\^+(?=\S)', '... ', out.decode('latin-1').replace('\t', ' '))
+    return text.replace('^', '...').strip()
 
 
 def scan_classic(data):
@@ -130,7 +132,7 @@ def main():
     ap.add_argument('--tsv', type=Path, help='write a translation template (offset, text, translation)')
     args = ap.parse_args()
 
-    rooms, _ = load(find_file(args.game_dir, '.he1'), b'LECF')
+    rooms, _ = load(find_file(args.game_dir, '.he1', '.(a)'), b'LECF')
     speech, _ = load(find_file(args.game_dir, '.he2'), b'TLKB')
 
     found = list(scan_classic(rooms)) + list(scan_modern(rooms))

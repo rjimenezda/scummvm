@@ -4265,11 +4265,11 @@ void ScummEngine_v60he::pauseEngineIntern(bool pause) {
 const Graphics::Font *ScummEngine_v60he::getLearnFont() {
 	if (!_learnFont) {
 #ifdef USE_FREETYPE2
-		_learnFont = Graphics::loadTTFFontFromArchive("NotoSans-Bold.ttf", 20, Graphics::kTTFSizeModeCharacter,
+		_learnFont = Graphics::loadTTFFontFromArchive("NotoSans-Bold.ttf", _screenWidth >= 640 ? 20 : 11, Graphics::kTTFSizeModeCharacter,
 			0, 0, Graphics::kTTFRenderModeMonochrome);
 #endif
 		if (!_learnFont)
-			return FontMan.getFontByUsage(Graphics::FontManager::kBigGUIFont);
+			return FontMan.getFontByUsage(_screenWidth >= 640 ? Graphics::FontManager::kBigGUIFont : Graphics::FontManager::kGUIFont);
 	}
 
 	return _learnFont;
@@ -4277,14 +4277,22 @@ const Graphics::Font *ScummEngine_v60he::getLearnFont() {
 
 void ScummEngine_v60he::runLearnPause() {
 	SoundHE *sound = (SoundHE *)_sound;
+
+	// Let the end of the line play out before pausing the audio
+	const uint32 playOutEnd = _system->getMillis() + sound->getLearnPauseDelay();
+	while (_system->getMillis() < playOutEnd && !shouldQuit()) {
+		_system->updateScreen();
+		_system->delayMillis(10);
+	}
+
 	PauseToken pt = pauseEngine();
 
 	const Common::U32String *translation = sound->getLastVoiceTranslation();
 	LearnExercise exercise;
 	const bool hasExercise = sound->getLastVoiceExercise(exercise);
 
-	LearnPanel panel(_system, getLearnFont(), FontMan.getFontByUsage(Graphics::FontManager::kGUIFont));
-	panel.show(translation ? *translation : Common::U32String(), hasExercise ? &exercise : nullptr);
+	LearnPanel panel(_system, getLearnFont(), FontMan.getFontByUsage(_screenWidth >= 640 ? Graphics::FontManager::kGUIFont : Graphics::FontManager::kConsoleFont));
+	panel.show(sound->getLastVoiceText(), translation ? *translation : Common::U32String(), hasExercise ? &exercise : nullptr);
 
 	bool done = false;
 	while (!done && !shouldQuit()) {
@@ -4300,6 +4308,8 @@ void ScummEngine_v60he::runLearnPause() {
 					sound->replayLastVoice();
 				else if (button == LearnPanel::kButtonContinue)
 					done = true;
+				else if (button == LearnPanel::kButtonTranslation)
+					panel.toggleTranslation();
 				else if (button >= 0)
 					panel.choose(button);
 				break;
@@ -4311,6 +4321,9 @@ void ScummEngine_v60he::runLearnPause() {
 				switch (event.kbd.keycode) {
 				case Common::KEYCODE_r:
 					sound->replayLastVoice();
+					break;
+				case Common::KEYCODE_t:
+					panel.toggleTranslation();
 					break;
 				case Common::KEYCODE_SPACE:
 				case Common::KEYCODE_RETURN:
