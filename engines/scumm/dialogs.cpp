@@ -1293,6 +1293,18 @@ ScummGameOptionsWidget::ScummGameOptionsWidget(GuiObject *boss, const Common::St
 				_smoothScrollCheckbox->setCmd(kSmoothScrollCmd);
 			} else if (strcmp(_options[i].configOption, "semi_smooth_scroll") == 0) {
 				_semiSmoothScrollCheckbox = checkbox;
+			} else if (strcmp(_options[i].configOption, "learn_pause") == 0) {
+				_learnPauseCheckbox = checkbox;
+				_learnPauseCheckbox->setCmd(kLearnPauseCmd);
+			} else if (strcmp(_options[i].configOption, "learn_translate") == 0) {
+				_learnTranslateCheckbox = checkbox;
+			} else if (strcmp(_options[i].configOption, "learn_exercise") == 0) {
+				_learnExerciseCheckbox = checkbox;
+				_learnExerciseCheckbox->setCmd(kLearnExerciseCmd);
+
+				_learnExerciseModeLabel = new GUI::StaticTextWidget(widgetsBoss(), _dialogLayout + ".learnExerciseModeLabel", _("Exercise mode:"));
+				_learnExerciseModePopUp = new GUI::PopUpWidget(widgetsBoss(), _dialogLayout + ".learnExerciseMode");
+				_learnExerciseModePopUp->appendEntry(_("Multiple choice"), kLearnExerciseChoice);
 #ifdef USE_SID_AUDIO
 			} else if (strcmp(_options[i].configOption, "c64_sid_type") == 0) {
 				_c64SidTypeCheckbox = checkbox;
@@ -1326,6 +1338,29 @@ void ScummGameOptionsWidget::load() {
 
 	if (_smoothScrollCheckbox && _semiSmoothScrollCheckbox)
 		_semiSmoothScrollCheckbox->setEnabled(_smoothScrollCheckbox->getState());
+
+	if (_learnExerciseModePopUp) {
+		_learnExerciseModePopUp->setSelectedTag(kLearnExerciseChoice);
+	}
+
+	updateLearnWidgets();
+}
+
+void ScummGameOptionsWidget::updateLearnWidgets() {
+	if (!_learnPauseCheckbox)
+		return;
+
+	const bool pause = _learnPauseCheckbox->getState();
+	if (_learnTranslateCheckbox)
+		_learnTranslateCheckbox->setEnabled(pause);
+	if (_learnExerciseCheckbox)
+		_learnExerciseCheckbox->setEnabled(pause);
+
+	const bool exercise = pause && _learnExerciseCheckbox && _learnExerciseCheckbox->getState();
+	if (_learnExerciseModeLabel)
+		_learnExerciseModeLabel->setEnabled(exercise);
+	if (_learnExerciseModePopUp)
+		_learnExerciseModePopUp->setEnabled(exercise);
 }
 
 bool ScummGameOptionsWidget::save() {
@@ -1334,6 +1369,9 @@ bool ScummGameOptionsWidget::save() {
 	for (uint i = 0; i < _options.size(); i++) {
 		if (_checkboxes[i]) {
 			bool isChecked = _checkboxes[i]->isEnabled() && _checkboxes[i]->getState();
+			// Learn sub-options keep their state while the pause is off
+			if (_checkboxes[i] == _learnTranslateCheckbox || _checkboxes[i] == _learnExerciseCheckbox)
+				isChecked = _checkboxes[i]->getState();
 #ifdef USE_SID_AUDIO
 			if (_checkboxes[i] == _c64SidTypeCheckbox)
 				ConfMan.set(_options[i].configOption, isChecked ? "pal" : "ntsc", _domain);
@@ -1342,6 +1380,9 @@ bool ScummGameOptionsWidget::save() {
 				ConfMan.setBool(_options[i].configOption, isChecked, _domain);
 		}
 	}
+
+	if (_learnExerciseModePopUp)
+		ConfMan.set("learn_exercise_mode", "choice", _domain);
 
 	return true;
 }
@@ -1356,6 +1397,13 @@ void ScummGameOptionsWidget::defineLayout(GUI::ThemeEval &layouts, const Common:
 		if (strcmp(_options[i].configOption, "enhancements") != 0) {
 			Common::String id = Common::String::format("%d", i + 1);
 			layouts.addWidget("customOption" + id + "Checkbox", "Checkbox");
+
+			if (strcmp(_options[i].configOption, "learn_exercise") == 0) {
+				layouts.addLayout(GUI::ThemeLayout::kLayoutHorizontal).addPadding(16, 0, 0, 0);
+				layouts.addWidget("learnExerciseModeLabel", "OptionsLabel");
+				layouts.addWidget("learnExerciseMode", "PopUp");
+				layouts.closeLayout();
+			}
 		} else
 			hasEnhancements = true;
 	}
@@ -1374,6 +1422,10 @@ void ScummGameOptionsWidget::handleCommand(GUI::CommandSender *sender, uint32 cm
 			_semiSmoothScrollCheckbox->setEnabled(data != 0);
 		break;
 	}
+	case kLearnPauseCmd:
+	case kLearnExerciseCmd:
+		updateLearnWidgets();
+		break;
 	default:
 		GUI::OptionsContainerWidget::handleCommand(sender, cmd, data);
 		break;

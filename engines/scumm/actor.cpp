@@ -3468,6 +3468,9 @@ void ScummEngine::actorTalk(const byte *msg) {
 
 	convertMessageToString(msg, _charsetBuffer, sizeof(_charsetBuffer));
 
+	if (_game.heversion >= 60)
+		((SoundHE *)_sound)->setLastTalkText(extractLearnText(_charsetBuffer, _game.heversion));
+
 	// I have commented out this workaround, since it did cause another
 	// bug (#11480). It is not okay to skip the stopTalk() calls here.
 	// Instead, I have added two checks from LOOM DOS EGA disasm (one

@@ -34,6 +34,10 @@ static const int kPadding = 8;
 static const int kButtonSize = 48;
 static const int kButtonGap = 12;
 static const int kHintGap = 2;
+static const int kChoiceGap = 10;
+static const int kChoiceHeight = 36;
+static const int kChoicePadding = 18;
+static const int kChoiceMinWidth = 90;
 
 // Arrow cursor shown while paused: 0 transparent, 1 black, 2 white
 static const int kCursorWidth = 12;
@@ -63,18 +67,28 @@ static const byte kCursorPalette[] = { 255, 0, 255, 0, 0, 0, 255, 255, 255 };
 
 LearnPanel::LearnPanel(OSystem *system, const Graphics::Font *font, const Graphics::Font *hintFont) :
 	_system(system), _font(font), _hintFont(hintFont) {
+	for (int i = 0; i < LearnExercise::kNumChoices; i++)
+		_wrong[i] = false;
 }
 
 LearnPanel::~LearnPanel() {
 	_backup.free();
 }
 
-void LearnPanel::show(const Common::U32String &text) {
+void LearnPanel::show(const Common::U32String &translation, const LearnExercise *exercise) {
 	Graphics::Surface *screen = _system->lockScreen();
 	if (!screen)
 		return;
 
-	layout(screen->w, screen->h, text);
+	_translation = translation;
+	_hasExercise = exercise != nullptr;
+	_solved = false;
+	for (int i = 0; i < LearnExercise::kNumChoices; i++)
+		_wrong[i] = false;
+	if (exercise)
+		_exercise = *exercise;
+
+	layout(screen->w, screen->h);
 	_backup.copyFrom(screen->getSubArea(_box));
 	_system->unlockScreen();
 
@@ -113,15 +127,21 @@ void LearnPanel::restoreCursor() {
 	CursorMan.popCursorPalette();
 }
 
-LearnPanel::Button LearnPanel::buttonAt(const Common::Point &pos) const {
+int LearnPanel::buttonAt(const Common::Point &pos) const {
 	if (_replayButton.contains(pos))
 		return kButtonReplay;
 	if (_continueButton.contains(pos))
 		return kButtonContinue;
+	if (_hasExercise && !_solved) {
+		for (int i = 0; i < LearnExercise::kNumChoices; i++) {
+			if (_choiceButtons[i].contains(pos))
+				return i;
+		}
+	}
 	return kButtonNone;
 }
 
-void LearnPanel::setHovered(Button button) {
+void LearnPanel::setHovered(int button) {
 	if (button == _hovered)
 		return;
 
@@ -129,16 +149,51 @@ void LearnPanel::setHovered(Button button) {
 	draw();
 }
 
-void LearnPanel::layout(int screenWidth, int screenHeight, const Common::U32String &text) {
+bool LearnPanel::choose(int choice) {
+	if (!_hasExercise || _solved || choice < 0 || choice >= LearnExercise::kNumChoices)
+		return false;
+
+	if (choice == _exercise.correctChoice) {
+		_solved = true;
+		_sentenceLines.clear();
+		_font->wordWrapText(sentenceWithBlank(), _textArea.width(), _sentenceLines);
+	} else {
+		_wrong[choice] = true;
+	}
+
+	draw();
+	return _solved;
+}
+
+Common::U32String LearnPanel::sentenceWithBlank() const {
+	Common::String blank = _solved ? _exercise.answer : Common::String(MAX<uint>(4, _exercise.answer.size()), '_');
+	return Common::U32String(_exercise.before + blank + _exercise.after, Common::kISO8859_1);
+}
+
+const Graphics::Font *LearnPanel::translationFont() const {
+	// With an exercise, the sentence is the main content and the translation a hint
+	return _hasExercise ? _hintFont : _font;
+}
+
+void LearnPanel::layout(int screenWidth, int screenHeight) {
 	const int textWidth = screenWidth - 2 * (kMargin + kPadding + kButtonSize + kButtonGap);
-
-	_lines.clear();
-	if (!text.empty())
-		_font->wordWrapText(text, textWidth, _lines);
-
 	const int lineHeight = _font->getFontHeight() + 2;
+	const Graphics::Font *trFont = translationFont();
+	const int trLineHeight = trFont->getFontHeight() + 2;
+
+	_sentenceLines.clear();
+	_translationLines.clear();
+	if (_hasExercise)
+		_font->wordWrapText(sentenceWithBlank(), textWidth, _sentenceLines);
+	if (!_translation.empty())
+		trFont->wordWrapText(_translation, textWidth, _translationLines);
+
+	int textHeight = lineHeight * _sentenceLines.size() + trLineHeight * _translationLines.size();
+	if (_hasExercise)
+		textHeight += kChoiceGap + kChoiceHeight;
+
 	const int buttonColumnHeight = kButtonSize + kHintGap + _hintFont->getFontHeight();
-	const int contentHeight = MAX<int>(buttonColumnHeight, lineHeight * _lines.size());
+	const int contentHeight = MAX<int>(buttonColumnHeight, textHeight);
 
 	_box = Common::Rect(kMargin, MAX<int>(0, screenHeight - kMargin - contentHeight - 2 * kPadding),
 		screenWidth - kMargin, screenHeight - kMargin);
@@ -147,8 +202,26 @@ void LearnPanel::layout(int screenWidth, int screenHeight, const Common::U32Stri
 	_replayButton = Common::Rect(_box.left + kPadding, buttonTop, _box.left + kPadding + kButtonSize, buttonTop + kButtonSize);
 	_continueButton = Common::Rect(_box.right - kPadding - kButtonSize, buttonTop, _box.right - kPadding, buttonTop + kButtonSize);
 
-	const int textTop = _box.top + (_box.height() - lineHeight * _lines.size()) / 2;
+	const int textTop = _box.top + (_box.height() - textHeight) / 2;
 	_textArea = Common::Rect(_replayButton.right + kButtonGap, textTop, _continueButton.left - kButtonGap, _box.bottom - kPadding);
+	_sentenceTop = textTop;
+	_translationTop = _sentenceTop + lineHeight * _sentenceLines.size();
+
+	if (_hasExercise) {
+		int widths[LearnExercise::kNumChoices];
+		int total = kChoiceGap * (LearnExercise::kNumChoices - 1);
+		for (int i = 0; i < LearnExercise::kNumChoices; i++) {
+			widths[i] = MAX<int>(kChoiceMinWidth, _font->getStringWidth(Common::U32String(_exercise.choices[i], Common::kISO8859_1)) + 2 * kChoicePadding);
+			total += widths[i];
+		}
+
+		const int choiceTop = _translationTop + trLineHeight * _translationLines.size() + kChoiceGap;
+		int x = _textArea.left + (_textArea.width() - total) / 2;
+		for (int i = 0; i < LearnExercise::kNumChoices; i++) {
+			_choiceButtons[i] = Common::Rect(x, choiceTop, x + widths[i], choiceTop + kChoiceHeight);
+			x += widths[i] + kChoiceGap;
+		}
+	}
 }
 
 LearnPanel::Colors LearnPanel::getColors(const Graphics::Surface &screen) const {
@@ -158,6 +231,10 @@ LearnPanel::Colors LearnPanel::getColors(const Graphics::Surface &screen) const 
 		{  90, 160, 255 }, // replay hover
 		{  40, 160,  70 }, // continue
 		{  90, 210, 110 }, // continue hover
+		{  70,  70, 110 }, // choice
+		{ 120, 120, 180 }, // choice hover
+		{ 200,  50,  50 }, // wrong choice
+		{  40, 160,  70 }, // right choice
 		{ 255, 255, 255 }, // icon
 		{ 255, 255, 255 }  // text
 	};
@@ -174,7 +251,7 @@ LearnPanel::Colors LearnPanel::getColors(const Graphics::Surface &screen) const 
 			c[i] = screen.format.RGBToColor(rgb[i][0], rgb[i][1], rgb[i][2]);
 	}
 
-	Colors colors = { c[0], c[1], c[2], c[3], c[4], c[5], c[6] };
+	Colors colors = { c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7], c[8], c[9], c[10] };
 	return colors;
 }
 
@@ -200,9 +277,35 @@ void LearnPanel::draw() {
 	drawHint(*screen, _continueButton, "Space", colors.text);
 
 	const int lineHeight = _font->getFontHeight() + 2;
-	for (uint i = 0; i < _lines.size(); i++)
-		_font->drawString(screen, _lines[i], _textArea.left, _textArea.top + i * lineHeight,
+	for (uint i = 0; i < _sentenceLines.size(); i++)
+		_font->drawString(screen, _sentenceLines[i], _textArea.left, _sentenceTop + i * lineHeight,
 			_textArea.width(), colors.text, Graphics::kTextAlignCenter);
+
+	const Graphics::Font *trFont = translationFont();
+	const int trLineHeight = trFont->getFontHeight() + 2;
+	for (uint i = 0; i < _translationLines.size(); i++)
+		trFont->drawString(screen, _translationLines[i], _textArea.left, _translationTop + i * trLineHeight,
+			_textArea.width(), colors.text, Graphics::kTextAlignCenter);
+
+	if (_hasExercise) {
+		for (int i = 0; i < LearnExercise::kNumChoices; i++) {
+			uint32 color = colors.choice;
+			if (_solved && i == _exercise.correctChoice)
+				color = colors.right;
+			else if (_wrong[i])
+				color = colors.wrong;
+			else if (!_solved && _hovered == i)
+				color = colors.choiceHover;
+
+			const Common::Rect &r = _choiceButtons[i];
+			screen->drawRoundRect(r, 8, color, true);
+			_font->drawString(screen, Common::U32String(_exercise.choices[i], Common::kISO8859_1),
+				r.left, r.top + (r.height() - _font->getFontHeight()) / 2, r.width(), colors.text, Graphics::kTextAlignCenter);
+
+			Common::String key = Common::String::format("%d", i + 1);
+			_hintFont->drawString(screen, key, r.left + 4, r.top + 2, 10, colors.text);
+		}
+	}
 
 	_system->unlockScreen();
 }

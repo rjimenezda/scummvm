@@ -28,6 +28,7 @@
 #include "common/ustr.h"
 #include "scumm/sound.h"
 #include "scumm/he/mixer_he.h"
+#include "scumm/he/learn_exercise_he.h"
 #include "audio/audiostream.h"
 
 namespace Scumm {
@@ -260,7 +261,9 @@ public:
 	bool isLearnPausePending() const { return _learnPausePending; }
 	void replayLastVoice();
 	void finishLearnPause();
-	const Common::U32String *getLastVoiceTranslation() const;
+	const Common::U32String *getLastVoiceTranslation();
+	void setLastTalkText(const Common::String &text);
+	bool getLastVoiceExercise(LearnExercise &exercise);
 	void stopDigitalSound(int sound);
 	void createSound(int snd1id, int snd2id);
 	int getChannelPosition(int channel);
@@ -277,12 +280,15 @@ private:
 	bool _stopActorTalkingFlag = false;
 
 	// Language learning mode: pause after each voice line, allow replaying it
-	bool _learnMode = false;
 	bool _learnPausePending = false;
+	bool _voiceTranslationsLoaded = false;
 	uint32 _lastVoiceOffset = 0;
 	uint32 _lastVoiceLength = 0;
 	Audio::SoundHandle _voiceReplayHandle;
 	Common::HashMap<uint32, Common::U32String> _voiceTranslations;
+	Common::String _lastTalkText;
+	Common::String _lastVoiceText;
+	LearnWordPool _learnWordPool;
 
 	void loadVoiceTranslations();
 	bool _inSoundCallbackFlag = false;

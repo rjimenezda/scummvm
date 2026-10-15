@@ -23,6 +23,7 @@ MODULE_OBJS := \
 	gfx_nes.o \
 	gfx_towns.o \
 	gfx.o \
+	he/learn_exercise_he.o \
 	he/learn_panel_he.o \
 	he/mixer_he.o \
 	he/resource_he.o \

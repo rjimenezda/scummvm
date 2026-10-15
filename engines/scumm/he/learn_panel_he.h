@@ -27,6 +27,8 @@
 #include "common/ustr.h"
 #include "graphics/surface.h"
 
+#include "scumm/he/learn_exercise_he.h"
+
 class OSystem;
 
 namespace Graphics {
@@ -36,42 +38,61 @@ class Font;
 namespace Scumm {
 
 // On-screen panel shown while learn mode is paused after a voice line:
-// a replay button, the line's translation and a continue button.
+// a replay button, the line's translation, an optional fill-in-the-blank
+// exercise and a continue button.
 class LearnPanel {
 public:
 	enum Button {
-		kButtonNone,
-		kButtonReplay,
-		kButtonContinue
+		kButtonNone = -1,
+		kButtonReplay = -2,
+		kButtonContinue = -3
+		// Values >= 0 are exercise choices
 	};
 
 	LearnPanel(OSystem *system, const Graphics::Font *font, const Graphics::Font *hintFont);
 	~LearnPanel();
 
-	void show(const Common::U32String &text);
+	void show(const Common::U32String &translation, const LearnExercise *exercise);
 	void hide();
 
-	Button buttonAt(const Common::Point &pos) const;
-	void setHovered(Button button);
+	int buttonAt(const Common::Point &pos) const;
+	void setHovered(int button);
+
+	bool hasExercise() const { return _hasExercise; }
+	// Returns true if the choice is the right answer
+	bool choose(int choice);
 
 private:
 	struct Colors {
-		uint32 panel, replay, replayHover, cont, contHover, icon, text;
+		uint32 panel, replay, replayHover, cont, contHover, choice, choiceHover, wrong, right, icon, text;
 	};
 
 	OSystem *_system;
 	const Graphics::Font *_font;
 	const Graphics::Font *_hintFont;
-	Common::Array<Common::U32String> _lines;
+
+	Common::U32String _translation;
+	LearnExercise _exercise;
+	bool _hasExercise = false;
+	bool _solved = false;
+	bool _wrong[LearnExercise::kNumChoices];
+
+	Common::Array<Common::U32String> _sentenceLines;
+	Common::Array<Common::U32String> _translationLines;
 	Common::Rect _box, _textArea, _replayButton, _continueButton;
+	Common::Rect _choiceButtons[LearnExercise::kNumChoices];
+	int _sentenceTop = 0, _translationTop = 0;
+
 	Graphics::Surface _backup;
-	Button _hovered = kButtonNone;
+	int _hovered = kButtonNone;
 	bool _visible = false;
 	bool _cursorWasVisible = false;
 
 	void showCursor();
 	void restoreCursor();
-	void layout(int screenWidth, int screenHeight, const Common::U32String &text);
+	Common::U32String sentenceWithBlank() const;
+	const Graphics::Font *translationFont() const;
+	void layout(int screenWidth, int screenHeight);
 	Colors getColors(const Graphics::Surface &screen) const;
 	void draw();
 	void drawSpeaker(Graphics::Surface &screen, const Common::Rect &r, uint32 color) const;

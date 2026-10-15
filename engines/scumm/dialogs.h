@@ -30,6 +30,7 @@
 
 namespace GUI {
 class CommandSender;
+class PopUpWidget;
 class StaticTextWidget;
 }
 
@@ -264,7 +265,13 @@ public:
 
 private:
 	enum {
-		kSmoothScrollCmd = 'SMSC'
+		kLearnExerciseChoice = 0
+	};
+
+	enum {
+		kSmoothScrollCmd = 'SMSC',
+		kLearnPauseCmd = 'LPAU',
+		kLearnExerciseCmd = 'LEXE'
 	};
 
 #ifdef USE_SID_AUDIO
@@ -273,6 +280,14 @@ private:
 	GUI::CheckboxWidget *_smoothScrollCheckbox = nullptr;
 	GUI::CheckboxWidget *_semiSmoothScrollCheckbox = nullptr;
 
+	// Language learning options (HE games)
+	GUI::CheckboxWidget *_learnPauseCheckbox = nullptr;
+	GUI::CheckboxWidget *_learnTranslateCheckbox = nullptr;
+	GUI::CheckboxWidget *_learnExerciseCheckbox = nullptr;
+	GUI::StaticTextWidget *_learnExerciseModeLabel = nullptr;
+	GUI::PopUpWidget *_learnExerciseModePopUp = nullptr;
+
+	void updateLearnWidgets();
 	void defineLayout(GUI::ThemeEval &layouts, const Common::String &layoutName, const Common::String &overlayedLayout) const override;
 	void handleCommand(GUI::CommandSender *sender, uint32 cmd, uint32 data) override;
 

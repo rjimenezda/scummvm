@@ -804,6 +804,41 @@ static const ExtraGuiOption audioOverride {
 	0
 };
 
+static const ExtraGuiOption learnPause = {
+	_s("Pause after each spoken line"),
+	_s("Language learning: pause the game when a character finishes a line, with buttons to listen again or continue."),
+	"learn_pause",
+	false,
+	0,
+	1
+};
+
+static const ExtraGuiOption learnTranslate = {
+	_s("Show translations while paused"),
+	_s("Language learning: show the line's translation from learn_translation.tsv in the game folder."),
+	"learn_translate",
+	true,
+	1,
+	0
+};
+
+static const ExtraGuiOption learnExercise = {
+	_s("Fill-in-the-blank exercise"),
+	_s("Language learning: blank one word of the spoken line and ask for it while paused."),
+	"learn_exercise",
+	false,
+	1,
+	0
+};
+
+static bool isHEGame(const Common::String &gameid) {
+	for (const GameSettings *g = gameVariantsTable; g->gameid; ++g) {
+		if (gameid == g->gameid)
+			return g->heversion >= 60;
+	}
+	return false;
+}
+
 static const ExtraGuiOption enableOriginalGUI = {
 	_s("Enable the original GUI and Menu"),
 	_s("Allow the game to use the in-engine graphical interface and the original save/load menu. "
@@ -1005,6 +1040,11 @@ const ExtraGuiOptions ScummMetaEngine::getExtraGuiOptions(const Common::String &
 	if (target.empty() || guiOptions.contains(GAMEOPTION_AUDIO_OVERRIDE)) {
 		options.push_back(audioOverride);
 	}
+	if (target.empty() || isHEGame(gameid)) {
+		options.push_back(learnPause);
+		options.push_back(learnTranslate);
+		options.push_back(learnExercise);
+	}
 	if (target.empty() || guiOptions.contains(GAMEOPTION_USE_REMASTERED_AUDIO)) {
 		options.push_back(useRemasteredAudio);
 #if 0
@@ -1114,6 +1154,7 @@ void ScummMetaEngine::registerDefaultSettings(const Common::String &) const {
 			ConfMan.registerDefault(engineOptions[i].configOption, engineOptions[i].defaultState);
 	}
 	ConfMan.registerDefault("gamma_correction", true);
+	ConfMan.registerDefault("learn_exercise_mode", "choice");
 }
 
 Common::KeymapArray ScummMetaEngine::initKeymaps(const char *target) const {

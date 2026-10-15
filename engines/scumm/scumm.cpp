@@ -4280,8 +4280,11 @@ void ScummEngine_v60he::runLearnPause() {
 	PauseToken pt = pauseEngine();
 
 	const Common::U32String *translation = sound->getLastVoiceTranslation();
+	LearnExercise exercise;
+	const bool hasExercise = sound->getLastVoiceExercise(exercise);
+
 	LearnPanel panel(_system, getLearnFont(), FontMan.getFontByUsage(Graphics::FontManager::kGUIFont));
-	panel.show(translation ? *translation : Common::U32String());
+	panel.show(translation ? *translation : Common::U32String(), hasExercise ? &exercise : nullptr);
 
 	bool done = false;
 	while (!done && !shouldQuit()) {
@@ -4291,18 +4294,16 @@ void ScummEngine_v60he::runLearnPause() {
 			case Common::EVENT_MOUSEMOVE:
 				panel.setHovered(panel.buttonAt(event.mouse));
 				break;
-			case Common::EVENT_LBUTTONDOWN:
-				switch (panel.buttonAt(event.mouse)) {
-				case LearnPanel::kButtonReplay:
+			case Common::EVENT_LBUTTONDOWN: {
+				int button = panel.buttonAt(event.mouse);
+				if (button == LearnPanel::kButtonReplay)
 					sound->replayLastVoice();
-					break;
-				case LearnPanel::kButtonContinue:
+				else if (button == LearnPanel::kButtonContinue)
 					done = true;
-					break;
-				default:
-					break;
-				}
+				else if (button >= 0)
+					panel.choose(button);
 				break;
+			}
 			case Common::EVENT_KEYDOWN:
 				if (event.kbdRepeat)
 					break;
@@ -4316,6 +4317,11 @@ void ScummEngine_v60he::runLearnPause() {
 				case Common::KEYCODE_KP_ENTER:
 				case Common::KEYCODE_PERIOD:
 					done = true;
+					break;
+				case Common::KEYCODE_1:
+				case Common::KEYCODE_2:
+				case Common::KEYCODE_3:
+					panel.choose(event.kbd.keycode - Common::KEYCODE_1);
 					break;
 				default:
 					break;

@@ -74,15 +74,13 @@ SoundHE::SoundHE(ScummEngine *parent, Audio::Mixer *mixer, Common::Mutex *mutex)
 		parent->_game.id == GID_PJGAMES;
 
 	_heMixer = new HEMixer(_mixer, _vm, useMilesSoundSystem);
-
-	_learnMode = ConfMan.hasKey("learn_mode") && ConfMan.getBool("learn_mode");
-	if (_learnMode)
-		loadVoiceTranslations();
 }
 
 void SoundHE::loadVoiceTranslations() {
 	// Tab separated lines: <talkie offset> <original text> <translation>
-	Common::String filename = ConfMan.hasKey("learn_translation") ? ConfMan.get("learn_translation") : "learn_translation.tsv";
+	Common::String filename = ConfMan.hasKey("learn_translation_file") ? ConfMan.get("learn_translation_file") : "learn_translation.tsv";
+
+	_voiceTranslationsLoaded = true;
 
 	Common::File file;
 	if (!file.open(Common::Path(filename)))
@@ -95,7 +93,7 @@ void SoundHE::loadVoiceTranslations() {
 
 		Common::StringTokenizer fields(line, "\t");
 		uint32 offset = (uint32)atol(fields.nextToken().c_str());
-		fields.nextToken();
+		_learnWordPool.addSentence(fields.nextToken());
 		Common::String translation = fields.nextToken();
 		translation.trim();
 
@@ -106,11 +104,37 @@ void SoundHE::loadVoiceTranslations() {
 	debug(1, "SoundHE: Loaded %d voice translations from %s", _voiceTranslations.size(), filename.c_str());
 }
 
-const Common::U32String *SoundHE::getLastVoiceTranslation() const {
+const Common::U32String *SoundHE::getLastVoiceTranslation() {
+	if (!ConfMan.getBool("learn_translate"))
+		return nullptr;
+
+	if (!_voiceTranslationsLoaded)
+		loadVoiceTranslations();
+
 	if (!_voiceTranslations.contains(_lastVoiceOffset))
 		return nullptr;
 
 	return &_voiceTranslations[_lastVoiceOffset];
+}
+
+void SoundHE::setLastTalkText(const Common::String &text) {
+	debug(1, "SoundHE: Talk text \"%s\"", text.c_str());
+	_lastTalkText = text;
+	if (!text.empty())
+		_learnWordPool.addSentence(text);
+}
+
+bool SoundHE::getLastVoiceExercise(LearnExercise &exercise) {
+	if (!ConfMan.getBool("learn_exercise") || _lastVoiceText.empty())
+		return false;
+
+	// The translation file also feeds the pool of words used as wrong choices
+	if (!_voiceTranslationsLoaded)
+		loadVoiceTranslations();
+
+	bool built = buildLearnExercise(_lastVoiceText, _lastVoiceOffset, _learnWordPool, exercise);
+	debug(1, "SoundHE: Exercise for voice %d \"%s\": %s", _lastVoiceOffset, _lastVoiceText.c_str(), built ? exercise.answer.c_str() : "none");
+	return built;
 }
 
 SoundHE::~SoundHE() {
@@ -699,7 +723,7 @@ void SoundHE::digitalSoundCallback(int message, int channel, bool earlyCallback)
 			// In the original this was used to prevent an edge case bug
 			// which caused recursive resource accesses/allocations.
 			// I think there's no harm in doing that ourselves too...
-			if (_learnMode && message == HSND_SOUND_ENDED) {
+			if (message == HSND_SOUND_ENDED && ConfMan.getBool("learn_pause")) {
 				// Keep the line "talking" until the learning pause is dismissed
 				_learnPausePending = true;
 			} else if (_vm->_insideCreateResource == 0) {
@@ -1582,6 +1606,7 @@ void SoundHE::playVoice(uint32 offset, uint32 length) {
 
 	_lastVoiceOffset = offset;
 	_lastVoiceLength = length;
+	_lastVoiceText = _lastTalkText;
 
 	addSoundToQueue(HSND_TALKIE_SLOT, 0, talkieChannel, 0, HSND_BASE_FREQ_FACTOR, HSND_SOUND_PAN_CENTER, HSND_MAX_VOLUME);
 }
