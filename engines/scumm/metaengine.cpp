@@ -804,11 +804,18 @@ static const ExtraGuiOption audioOverride {
 	0
 };
 
+// The web build showcases learn mode, so it's on by default there
+#ifdef __EMSCRIPTEN__
+#define LEARN_DEFAULT_STATE true
+#else
+#define LEARN_DEFAULT_STATE false
+#endif
+
 static const ExtraGuiOption learnPause = {
 	_s("Pause after each spoken line"),
 	_s("Language learning: pause the game when a character finishes a line, with buttons to listen again or continue."),
 	"learn_pause",
-	false,
+	LEARN_DEFAULT_STATE,
 	0,
 	1
 };
@@ -826,7 +833,7 @@ static const ExtraGuiOption learnExercise = {
 	_s("Fill-in-the-blank exercise"),
 	_s("Language learning: blank one word of the spoken line and ask for it while paused."),
 	"learn_exercise",
-	false,
+	LEARN_DEFAULT_STATE,
 	1,
 	0
 };

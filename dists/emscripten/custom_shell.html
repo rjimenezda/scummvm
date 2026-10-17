@@ -111,6 +111,184 @@
     #status.error {
       background: red
     }
+
+    /* Local game picker, shown before ScummVM starts */
+    #games-panel {
+      position: absolute;
+      inset: 0;
+      z-index: 4;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      background: rgba(0, 0, 0, 0.75);
+      font: 16px/1.4 "Trebuchet MS", Verdana, Tahoma, Sans-Serif;
+    }
+
+    #games-panel[hidden] {
+      display: none;
+    }
+
+    #games-panel .box {
+      width: 100%;
+      max-width: 720px;
+      max-height: 100%;
+      overflow: auto;
+      box-sizing: border-box;
+      padding: 1.5em;
+      border: 3px solid black;
+      border-radius: 1em;
+      background: #f6e08a;
+    }
+
+    #games-panel h1 {
+      margin: 0 0 0.25em;
+      font-size: 1.6em;
+    }
+
+    #games-panel h2 {
+      margin: 0 0 0.5em;
+      font-size: 1em;
+    }
+
+    #games-panel p {
+      margin: 0 0 1em;
+    }
+
+    #games-panel ul {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    #games-panel button,
+    #games-panel label.button {
+      font: inherit;
+      padding: 0.3em 0.8em;
+      border: 2px solid black;
+      border-radius: 0.5em;
+      background: #fff;
+      color: #000;
+      cursor: pointer;
+    }
+
+    #games-panel.busy button,
+    #games-panel.busy label.button {
+      opacity: 0.5;
+      pointer-events: none;
+    }
+
+    /* Demos: the main focus of the page */
+    #demos-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 0.75em;
+      margin-bottom: 1.5em;
+    }
+
+    #demos-list button {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      height: 100%;
+      padding: 0;
+      overflow: hidden;
+      border-width: 3px;
+      background: #fff;
+      text-align: center;
+      transition: transform 0.1s ease-out, box-shadow 0.1s ease-out;
+    }
+
+    #demos-list button:hover,
+    #demos-list button:focus-visible {
+      transform: translateY(-3px);
+      box-shadow: 0 4px 0 #000;
+    }
+
+    #demos-list img {
+      display: block;
+      width: 100%;
+      aspect-ratio: 1;
+      object-fit: contain;
+      padding: 0.5em;
+      box-sizing: border-box;
+      background: #fdf3c4;
+    }
+
+    #demos-list .title {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.5em;
+      border-top: 3px solid #000;
+      background: #c60;
+      color: #fff;
+      font-weight: bold;
+      font-size: 0.9em;
+      line-height: 1.25;
+    }
+
+    /* Diagonal "Demo" ribbon across the top-right corner */
+    #demos-list .ribbon {
+      position: absolute;
+      top: 14px;
+      right: -34px;
+      width: 120px;
+      padding: 2px 0;
+      transform: rotate(45deg);
+      border-top: 2px solid #000;
+      border-bottom: 2px solid #000;
+      background: #d22;
+      color: #fff;
+      font-size: 0.75em;
+      font-weight: bold;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      box-shadow: 0 2px 3px rgba(0, 0, 0, 0.3);
+    }
+
+    /* Custom games and the launcher: secondary */
+    #games-panel .secondary {
+      padding-top: 1em;
+      border-top: 2px solid rgba(0, 0, 0, 0.2);
+      font-size: 0.9em;
+    }
+
+    #games-list li {
+      display: flex;
+      align-items: center;
+      gap: 0.5em;
+      padding: 0.3em 0;
+    }
+
+    #games-list li span {
+      flex: 1;
+      font-family: monospace;
+      overflow-wrap: anywhere;
+    }
+
+    #games-panel .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5em;
+      margin-top: 0.5em;
+    }
+
+    #games-panel input[type=file] {
+      display: none;
+    }
+
+    #games-panel .hint {
+      margin: 0.75em 0 0;
+      opacity: 0.8;
+    }
+
+    #games-panel .hint a {
+      color: #000;
+      font-weight: bold;
+    }
   </style>
 </head>
 
@@ -119,6 +297,32 @@
     <progress hidden id=progress max=100 value=0></progress>
   </div>
   <div class="emscripten" id="status">Downloading ScummVM...</div>
+
+  <div id="games-panel" hidden>
+    <div class="box">
+      <h1>Play a demo</h1>
+      <p>Learn while you play: the game pauses after each line so you can listen again, read the translation and
+        practise.</p>
+      <ul id="demos-list"></ul>
+
+      <div class="secondary">
+        <h2>Your own games</h2>
+        <ul id="games-list"></ul>
+        <p id="games-progress" hidden></p>
+        <div class="actions">
+          <label class="button" for="games-input">Add a game folder…</label>
+          <input type="file" id="games-input" webkitdirectory multiple>
+          <button id="games-launcher">Open ScummVM launcher</button>
+        </div>
+        <p class="hint">Files stay in this browser and never leave your device. Pick a game folder and ScummVM
+          detects the game and adds it with learn mode turned on. For translations, include a
+          <code>learn_translation.tsv</code> file in the folder. You can make one with the
+          <a href="https://github.com/rjimenezda/scummvm/tree/he-language-learning/_tools" target="_blank"
+            rel="noopener">scripts in <code>_tools</code></a>: <code>he_lines.py --tsv</code> lists every spoken line
+          for you to translate.</p>
+      </div>
+    </div>
+  </div>
 
   <div class=emscripten_border>
     <canvas class=emscripten id=canvas oncontextmenu=event.preventDefault() tabindex=-1></canvas>

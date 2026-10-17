@@ -32,6 +32,7 @@
 #include "backends/fs/emscripten/emscripten-fs-factory.h"
 #include "backends/platform/sdl/emscripten/emscripten.h"
 #include "backends/timer/emscripten/emscripten-timer.h"
+#include "common/events.h"
 #include "common/file.h"
 #ifdef USE_TTS
 #include "backends/text-to-speech/emscripten/emscripten-text-to-speech.h"
@@ -118,6 +119,17 @@ void OSystem_Emscripten::initBackend() {
 
 	// Invoke parent implementation of this method
 	OSystem_POSIX::initBackend();
+
+	// The page can ask to add a game folder it copied into the virtual file
+	// system. Send it to the launcher as a dropped folder, which runs the same
+	// detection and options dialog as "Add Game...".
+	const char *addGamePath = getenv("SCUMMVM_ADD_GAME");
+	if (addGamePath && *addGamePath) {
+		Common::Event event;
+		event.type = Common::EVENT_DROP_FILE;
+		event.path = Common::Path(addGamePath);
+		getEventManager()->pushEvent(event);
+	}
 }
 
 void OSystem_Emscripten::init() {
