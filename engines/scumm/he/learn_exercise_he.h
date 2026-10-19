@@ -59,7 +59,8 @@ private:
 	WordSet _lowercase;
 };
 
-// Printable text of an HE talk string, without its control codes
+// Printable text of a talk string, without its control codes.
+// heversion is 0 for classic SCUMM v6 games.
 struct LearnTalkText {
 	Common::String text;
 	Common::Array<uint> positions; // Index in the talk string of each character of text

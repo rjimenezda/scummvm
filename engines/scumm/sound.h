@@ -23,12 +23,16 @@
 #define SCUMM_SOUND_H
 
 #include "common/scummsys.h"
+#include "common/hashmap.h"
 #include "common/serializer.h"
 #include "common/str.h"
+#include "common/ustr.h"
 #include "audio/mididrv.h"
+#include "audio/mixer.h"
 #include "scumm/file.h"
 #include "scumm/soundcd.h"
 #include "scumm/soundse.h"
+#include "scumm/he/learn_exercise_he.h"
 
 #define DIGI_SND_MODE_EMPTY  0
 #define DIGI_SND_MODE_SFX    1
@@ -146,6 +150,18 @@ public:
 	void stopSpeechTimer();
 	bool speechIsPlaying(); // Used within MIDI iMUSE
 
+	// Language learning mode: pause after each voice line, allow replaying it
+	// Called when a line starts; may blank the exercise word in the talk string
+	void prepareTalk(byte *talkString);
+	bool isLearnPausePending() const { return _learnPausePending; }
+	// Time left to play when the line ended through an early callback
+	virtual uint32 getLearnPauseDelay() const { return 0; }
+	virtual void replayLastVoice();
+	virtual void finishLearnPause();
+	const Common::U32String *getLastVoiceTranslation();
+	bool getLastVoiceExercise(LearnExercise &exercise);
+	const Common::String &getLastVoiceText() const { return _voiceText; }
+
 	void saveLoadWithSerializer(Common::Serializer &ser) override;
 	void restoreAfterLoad();
 
@@ -186,6 +202,27 @@ public:
 	}
 
 protected:
+	bool _learnPausePending = false;
+	bool _voiceTranslationsLoaded = false;
+	uint32 _lastVoiceOffset = 0;
+	uint32 _lastVoiceLength = 0;
+	Common::String _voiceText;
+	uint32 _voiceTextOffset = 0;
+	LearnExercise _voiceExercise;
+	bool _voiceHasExercise = false;
+	// The line being prepared, until its voice starts
+	Common::String _talkText;
+	uint32 _talkVoiceOffset = 0;
+	LearnExercise _talkExercise;
+	bool _talkHasExercise = false;
+	Audio::SoundHandle _voiceReplayHandle;
+	Common::HashMap<uint32, Common::U32String> _voiceTranslations;
+	LearnWordPool _learnWordPool;
+
+	void loadVoiceTranslations();
+	// The prepared line becomes the one the learning pause is about
+	void startLearnVoice(uint32 offset, uint32 length);
+
 	void setupSfxFile();
 	bool isSfxFinished() const;
 	void processSfxQueues();

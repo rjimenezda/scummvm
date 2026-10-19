@@ -172,7 +172,7 @@ bool LearnWordPool::pickDecoys(const Common::String &answer, uint32 seed, Common
 }
 
 LearnTalkText extractLearnText(const byte *msg, int heversion, bool localized) {
-	// Argument sizes of the 0xFF control codes in HE60-71 strings
+	// Argument sizes of the 0xFF control codes in SCUMM v6 and HE60-71 strings
 	static const int classicArgs[16] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 14, 0, 2, 2, 3, 0 };
 	const byte modernCode = heversion >= 80 ? 127 : 64;
 	LearnTalkText result;
@@ -197,11 +197,12 @@ LearnTalkText extractLearnText(const byte *msg, int heversion, bool localized) {
 				result.text += ' ';
 				result.positions.push_back(pos - 2);
 			}
-		} else if (heversion < 72 && c == 0xFF) {
+		} else if (heversion < 72 && (c == 0xFF || c == 0xFE)) {
 			byte code = msg[pos + 1];
 			if (!code)
 				break;
-			if (code == 1) {
+			// New line, or wait before the next part of the line
+			if (code == 1 || code == 3) {
 				result.text += ' ';
 				result.positions.push_back(pos);
 			} else if (code == 10 && !result.voiceOffset) {

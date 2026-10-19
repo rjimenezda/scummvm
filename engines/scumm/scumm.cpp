@@ -493,6 +493,7 @@ ScummEngine::ScummEngine(OSystem *syst, const DetectorResult &dr)
 
 ScummEngine::~ScummEngine() {
 	delete _musicEngine;
+	delete _learnFont;
 
 	// Delete the sound object earlier than the actors
 	// for HE games, since in SoundHE::stopAllSounds() we
@@ -750,7 +751,6 @@ ScummEngine_v60he::~ScummEngine_v60he() {
 		delete _hOutFileTable[i];
 	}
 
-	delete _learnFont;
 }
 
 ScummEngine_v70he::ScummEngine_v70he(OSystem *syst, const DetectorResult &dr)
@@ -2946,12 +2946,11 @@ Common::Error ScummEngine::go() {
 			if (_macGui)
 				_macGui->update(delta);
 
-			if (_game.heversion >= 60) {
+			if (_game.heversion >= 60)
 				((SoundHE *)_sound)->feedMixer();
 
-				if (((SoundHE *)_sound)->isLearnPausePending())
-					((ScummEngine_v60he *)this)->runLearnPause();
-			}
+			if (_sound->isLearnPausePending())
+				runLearnPause();
 
 			if (VAR_LAST_FRAME_SCUMM_TIME != 0xFF)
 				VAR(VAR_LAST_FRAME_SCUMM_TIME) = _system->getMillis() - _lastWaitTime;
@@ -4262,7 +4261,7 @@ void ScummEngine_v60he::pauseEngineIntern(bool pause) {
 	ScummEngine::pauseEngineIntern(pause);
 }
 
-const Graphics::Font *ScummEngine_v60he::getLearnFont() {
+const Graphics::Font *ScummEngine::getLearnFont() {
 	if (!_learnFont) {
 #ifdef USE_FREETYPE2
 		_learnFont = Graphics::loadTTFFontFromArchive("NotoSans-Bold.ttf", _screenWidth >= 640 ? 20 : 11, Graphics::kTTFSizeModeCharacter,
@@ -4275,8 +4274,8 @@ const Graphics::Font *ScummEngine_v60he::getLearnFont() {
 	return _learnFont;
 }
 
-void ScummEngine_v60he::runLearnPause() {
-	SoundHE *sound = (SoundHE *)_sound;
+void ScummEngine::runLearnPause() {
+	Sound *sound = _sound;
 
 	// Let the end of the line play out before pausing the audio
 	const uint32 playOutEnd = _system->getMillis() + sound->getLearnPauseDelay();

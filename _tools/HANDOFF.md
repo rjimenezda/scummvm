@@ -7,8 +7,8 @@ English-listening practice for Spanish-speaking kids.
 ## Working conventions
 - macOS arm64, Xcode clang, Homebrew deps. Build: `./configure --enable-debug && make -j8` (already configured; just `make -j8`).
 - Run from repo root (game paths in the config are relative):
-  `./scummvm --extrapath=dists/engine-data -d1 --subtitles <target> 2>&1 | grep SoundHE`
-  (`--extrapath` is needed for the NotoSans TTF in `fonts.dat`; `-d1` shows the `SoundHE:` debug traces.)
+  `./scummvm --extrapath=dists/engine-data -d1 --subtitles <target> 2>&1 | grep Sound`
+  (`--extrapath` is needed for the NotoSans TTF in `fonts.dat`; `-d1` shows the `Sound:`/`SoundHE:` debug traces.)
 - The game can't be run headless here (no display), so in-game testing is done by the user.
 - Commits: ScummVM `AI-GUIDELINES.md` → use `Assisted-by: Claude Code:claude-opus-5-5`, never an AI co-author line.
   Prefix messages `SCUMM: HE: …`. Commit only when the user asks.
@@ -28,6 +28,8 @@ English-listening practice for Spanish-speaking kids.
 | `puttputt-win` | `_games/putt1` | HE 70 | 320×200 | Spanish (1215 lines) |
 | `pajama-win` | `_games/pajama1` | HE 100 ("Updated" re-release) | 640×480 | Spanish (2717 of 2730 lines; the 13 empty ones have no subtitle text) |
 | `spyfox` (add via launcher) | `_games/spyfox1` | HE 90 | 640×480 | Spanish (5087 lines, untested in game) |
+| `tentacle` (add via launcher) | `_games/dott_en/dott` | SCUMM v6 (not HE), English CD, FLAC `monster.sof` | 320×200 | Spanish, taken from `dott_es` (4439 lines) |
+| (source only) | `_games/dott_es` | SCUMM v6, Spanish CD (Spanish text, English voices) | 320×200 | — |
 
 ## What's built
 - **Pause after each voiced line** (`learn_pause`): when the talkie voice ends (`HSND_SOUND_ENDED` on
@@ -52,7 +54,27 @@ English-listening practice for Spanish-speaking kids.
 - **Launcher options** (Engine tab, HE games only): pause / translations / exercise + mode dropdown, wired in
   `ScummGameOptionsWidget` (`dialogs.cpp`) with greying when pause is off. Defined in `metaengine.cpp`.
 
+## Classic SCUMM v6 talkies (Day of the Tentacle, Sam & Max)
+- The pause loop is `ScummEngine::runLearnPause()` (base engine, not HE-only). The learn state (pending flag,
+  talk/voice text and exercise, last voice offset/length, translations, word pool), `prepareTalk()` and
+  `getLastVoiceExercise()` live in `Sound`. `startLearnVoice()` turns the prepared line into the paused one:
+  called from `SoundHE::playVoice()` and, for v6, `Sound::talkSound()`. `SoundHE` only overrides
+  `replayLastVoice` and `getLearnPauseDelay`.
+- v6 voice lines end in `Sound::processSfxQueues()`: with `learn_pause`, `stopTalk()` is replaced by setting
+  `_learnPausePending` (as soon as the voice ends, without waiting for the subtitle timer).
+- Line IDs are offsets into the original MONSTER.SOU (compressed .sof/.so3/.sog keep them via their offset table).
+- `prepareTalk()` for v6: CP850 → Latin-1 and '`' → '"' (the LucasArts font draws it as a quote), length-preserving
+  so exercise blanking positions stay valid.
+- Replay calls `startTalkSound()` on `_voiceReplayHandle` with `_soundsPaused` briefly cleared.
+- Launcher: pause, translations and exercise for `tentacle`/`samnmax` (exercise only makes sense when
+  text and voice share a language, i.e. the English copy).
+- Workflow: the Spanish DOTT CD has the same speech file as the English one, so lines match by offset.
+  `scumm_lines.py _games/dott_en/dott -o _games/_out/dott/lines_en.csv --translate _games/dott_es --tsv _games/_out/dott/learn_translation.tsv`,
+  then copy the TSV into `_games/dott_en/dott/`. The 91 unmatched offsets have no text in either version.
+
 ## Tools (`_tools/`)
+- `scumm_lines.py GAME_DIR [-o lines.csv] [--tsv file.tsv] [--translate OTHER_GAME_DIR]`: same for SCUMM v6
+  talkies (reads the XOR'd `.001`); `--translate` fills the translations from another language version.
 - `he_lines.py GAME_DIR [-o lines.csv] [--wav DIR] [--tsv template.tsv]`: lists every voiced line
   (offset, length, uses, text), exports WAVs, writes a translation template. Handles XOR 0x69, `.he1`/`.(a)`,
   both talkie formats, `^`→`...`, tabs→spaces. Recording variants with different text are joined by ` || `.

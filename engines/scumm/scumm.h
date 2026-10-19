@@ -68,6 +68,7 @@ class WriteStream;
 class SeekableWriteStream;
 }
 namespace Graphics {
+class Font;
 class FontSJIS;
 }
 
@@ -684,11 +685,16 @@ protected:
 	virtual void setDefaultCursor() {};
 	virtual void setCursorTransparency(int a) {};
 	virtual void resetCursors() {}
+
+	Graphics::Font *_learnFont = nullptr;
+	const Graphics::Font *getLearnFont();
 	virtual void setCursorHotspot(int x, int y) {}
 	virtual void setCursorFromBuffer(const byte *ptr, int width, int height, int pitch, bool preventScale = false) {}
 
 public:
 	void pauseGame();
+	// Language learning mode: shows the learn panel after a voice line
+	void runLearnPause();
 	void restart();
 	bool isUsingOriginalGUI() const;
 	bool isMessageBannerActive(); // For Indy4 Jap character shadows

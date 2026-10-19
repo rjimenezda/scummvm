@@ -30,8 +30,6 @@
 #include "scumm/util.h"
 
 #include "common/config-manager.h"
-#include "common/file.h"
-#include "common/tokenizer.h"
 #include "common/memstream.h"
 #include "common/timer.h"
 #include "common/util.h"
@@ -76,82 +74,6 @@ SoundHE::SoundHE(ScummEngine *parent, Audio::Mixer *mixer, Common::Mutex *mutex)
 	_heMixer = new HEMixer(_mixer, _vm, useMilesSoundSystem);
 }
 
-void SoundHE::loadVoiceTranslations() {
-	// Tab separated lines: <talkie offset> <original text> <translation>
-	Common::String filename = ConfMan.hasKey("learn_translation_file") ? ConfMan.get("learn_translation_file") : "learn_translation.tsv";
-
-	_voiceTranslationsLoaded = true;
-
-	Common::File file;
-	if (!file.open(Common::Path(filename)))
-		return;
-
-	while (!file.eos() && !file.err()) {
-		Common::String line = file.readLine();
-		if (line.empty() || !Common::isDigit(line[0]))
-			continue;
-
-		Common::StringTokenizer fields(line, "\t");
-		uint32 offset = (uint32)atol(fields.nextToken().c_str());
-		_learnWordPool.addSentence(fields.nextToken());
-		Common::String translation = fields.nextToken();
-		translation.trim();
-
-		if (offset && !translation.empty())
-			_voiceTranslations[offset] = Common::U32String(translation, Common::kUtf8);
-	}
-
-	debug(1, "SoundHE: Loaded %d voice translations from %s", _voiceTranslations.size(), filename.c_str());
-}
-
-const Common::U32String *SoundHE::getLastVoiceTranslation() {
-	if (!ConfMan.getBool("learn_translate"))
-		return nullptr;
-
-	if (!_voiceTranslationsLoaded)
-		loadVoiceTranslations();
-
-	if (!_voiceTranslations.contains(_lastVoiceOffset))
-		return nullptr;
-
-	return &_voiceTranslations[_lastVoiceOffset];
-}
-
-void SoundHE::prepareTalk(byte *talkString) {
-	LearnTalkText talk = extractLearnText(talkString, _vm->_game.heversion, _vm->_game.features & GF_HE_LOCALIZED);
-	debug(1, "SoundHE: Talk text for voice %d \"%s\"", talk.voiceOffset, talk.text.c_str());
-
-	_talkHasExercise = false;
-	_talkText = talk.text;
-	_talkVoiceOffset = talk.voiceOffset;
-	if (talk.text.empty())
-		return;
-
-	if (!ConfMan.getBool("learn_pause") || !ConfMan.getBool("learn_exercise")) {
-		_learnWordPool.addSentence(talk.text);
-		return;
-	}
-
-	// The translation file also feeds the pool of words used as wrong choices
-	if (!_voiceTranslationsLoaded)
-		loadVoiceTranslations();
-
-	_learnWordPool.addSentence(talk.text);
-	if (!talk.voiceOffset)
-		return;
-
-	_talkHasExercise = buildLearnExercise(talk.text, talk.voiceOffset, _learnWordPool, _talkExercise);
-	if (!_talkHasExercise)
-		return;
-
-	debug(1, "SoundHE: Blanking \"%s\"", _talkExercise.answer.c_str());
-
-	// Blank the word in the game's own subtitle too. Spaces are used since
-	// the game fonts draw '_' and '-' at inconsistent heights.
-	for (uint i = 0; i < _talkExercise.answer.size(); i++)
-		talkString[talk.positions[_talkExercise.blankStart + i]] = ' ';
-}
-
 void SoundHE::blankSubtitleText(byte *text) {
 	// Some games (e.g. Spy Fox 3) draw subtitles as sprites from a script string
 	// instead of the talk string, possibly one line at a time.
@@ -180,14 +102,6 @@ void SoundHE::blankSubtitleText(byte *text) {
 			text[fragment.positions[exercise.blankStart - offset + i]] = ' ';
 		return;
 	}
-}
-
-bool SoundHE::getLastVoiceExercise(LearnExercise &exercise) {
-	if (!ConfMan.getBool("learn_exercise") || !_voiceHasExercise)
-		return false;
-
-	exercise = _voiceExercise;
-	return true;
 }
 
 SoundHE::~SoundHE() {
@@ -1666,14 +1580,7 @@ void SoundHE::playVoice(uint32 offset, uint32 length) {
 	ptr = _vm->getResourceAddress(rtSound, 1);
 	file.read(ptr, length);
 
-	_lastVoiceOffset = offset;
-	_lastVoiceLength = length;
-	_voiceHasExercise = _talkHasExercise;
-	_voiceExercise = _talkExercise;
-	_voiceText = _talkText;
-	_voiceTextOffset = _talkVoiceOffset;
-	_talkHasExercise = false;
-	_talkText.clear();
+	startLearnVoice(offset, length);
 
 	addSoundToQueue(HSND_TALKIE_SLOT, 0, talkieChannel, 0, HSND_BASE_FREQ_FACTOR, HSND_SOUND_PAN_CENTER, HSND_MAX_VOLUME);
 }
@@ -1720,12 +1627,6 @@ void SoundHE::replayLastVoice() {
 
 	Audio::AudioStream *stream = Audio::makeRawStream(samples, size, frequency, Audio::FLAG_UNSIGNED);
 	_mixer->playStream(Audio::Mixer::kSpeechSoundType, &_voiceReplayHandle, stream);
-}
-
-void SoundHE::finishLearnPause() {
-	_mixer->stopHandle(_voiceReplayHandle);
-	_learnPausePending = false;
-	_vm->stopTalk();
 }
 
 void SoundHE::playVoiceFile(char *filename) {

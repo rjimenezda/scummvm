@@ -20,6 +20,8 @@
  */
 
 #include "common/config-manager.h"
+#include "common/file.h"
+#include "common/tokenizer.h"
 #include "common/util.h"
 #include "common/ptr.h"
 #include "common/substream.h"
@@ -424,6 +426,13 @@ void Sound::processSfxQueues() {
 				}
 			}
 #endif
+		}
+
+		// Learn mode: keep the line "talking" until the learning pause is
+		// dismissed. Voices without text don't pause.
+		if (finished && _vm->_game.heversion == 0 && !_vm->_imuseDigital && ConfMan.getBool("learn_pause") && !_voiceText.empty()) {
+			_learnPausePending = true;
+			return;
 		}
 
 #ifdef USE_TTS
@@ -1024,9 +1033,138 @@ void Sound::talkSound(uint32 offset, uint32 length, int mode, int channel) {
 	} else {
 		_queuedTalkieOffset = offset;
 		_queuedTalkieLen = length;
+		startLearnVoice(offset, length);
 	}
 
 	_queuedSoundMode |= mode;
+}
+
+void Sound::prepareTalk(byte *talkString) {
+	const bool he = _vm->_game.heversion != 0;
+	LearnTalkText talk = extractLearnText(talkString, _vm->_game.heversion, _vm->_game.features & GF_HE_LOCALIZED);
+
+	// Classic DOS games use code page 850, while the learn panel expects Latin-1.
+	// Their fonts draw '`' as a quotation mark. Both keep the text's length.
+	if (!he) {
+		talk.text = Common::U32String(talk.text, Common::kDos850).encode(Common::kISO8859_1);
+		for (uint i = 0; i < talk.text.size(); i++) {
+			if (talk.text[i] == '`')
+				talk.text.setChar('"', i);
+		}
+	}
+
+	debug(1, "Sound: Talk text for voice %d \"%s\"", talk.voiceOffset, talk.text.c_str());
+
+	_talkHasExercise = false;
+	_talkText = talk.text;
+	_talkVoiceOffset = talk.voiceOffset;
+	if (talk.text.empty())
+		return;
+
+	if (!ConfMan.getBool("learn_pause") || !ConfMan.getBool("learn_exercise")) {
+		_learnWordPool.addSentence(talk.text);
+		return;
+	}
+
+	// The translation file also feeds the pool of words used as wrong choices
+	if (!_voiceTranslationsLoaded)
+		loadVoiceTranslations();
+
+	_learnWordPool.addSentence(talk.text);
+	if (!talk.voiceOffset)
+		return;
+
+	_talkHasExercise = buildLearnExercise(talk.text, talk.voiceOffset, _learnWordPool, _talkExercise);
+	if (!_talkHasExercise)
+		return;
+
+	debug(1, "Sound: Blanking \"%s\"", _talkExercise.answer.c_str());
+
+	// Blank the word in the game's own subtitle too. Spaces are used since
+	// the HE fonts draw '_' and '-' at inconsistent heights.
+	for (uint i = 0; i < _talkExercise.answer.size(); i++)
+		talkString[talk.positions[_talkExercise.blankStart + i]] = ' ';
+}
+
+void Sound::startLearnVoice(uint32 offset, uint32 length) {
+	_lastVoiceOffset = offset;
+	_lastVoiceLength = length;
+	_voiceHasExercise = _talkHasExercise;
+	_voiceExercise = _talkExercise;
+	_voiceText = _talkText;
+	_voiceTextOffset = _talkVoiceOffset;
+	_talkHasExercise = false;
+	_talkText.clear();
+}
+
+bool Sound::getLastVoiceExercise(LearnExercise &exercise) {
+	if (!ConfMan.getBool("learn_exercise") || !_voiceHasExercise)
+		return false;
+
+	exercise = _voiceExercise;
+	return true;
+}
+
+void Sound::loadVoiceTranslations() {
+	// Tab separated lines: <talkie offset> <original text> <translation>
+	Common::String filename = ConfMan.hasKey("learn_translation_file") ? ConfMan.get("learn_translation_file") : "learn_translation.tsv";
+
+	_voiceTranslationsLoaded = true;
+
+	Common::File file;
+	if (!file.open(Common::Path(filename)))
+		return;
+
+	while (!file.eos() && !file.err()) {
+		Common::String line = file.readLine();
+		if (line.empty() || !Common::isDigit(line[0]))
+			continue;
+
+		Common::StringTokenizer fields(line, "\t");
+		uint32 offset = (uint32)atol(fields.nextToken().c_str());
+		_learnWordPool.addSentence(fields.nextToken());
+		Common::String translation = fields.nextToken();
+		translation.trim();
+
+		if (offset && !translation.empty())
+			_voiceTranslations[offset] = Common::U32String(translation, Common::kUtf8);
+	}
+
+	debug(1, "Sound: Loaded %d voice translations from %s", _voiceTranslations.size(), filename.c_str());
+}
+
+const Common::U32String *Sound::getLastVoiceTranslation() {
+	if (!ConfMan.getBool("learn_translate"))
+		return nullptr;
+
+	if (!_voiceTranslationsLoaded)
+		loadVoiceTranslations();
+
+	if (!_voiceTranslations.contains(_lastVoiceOffset))
+		return nullptr;
+
+	return &_voiceTranslations[_lastVoiceOffset];
+}
+
+void Sound::replayLastVoice() {
+	_mixer->stopHandle(_voiceReplayHandle);
+
+	if (_lastVoiceOffset == 0 || _vm->_imuseDigital)
+		return;
+
+	// The game is paused at this point, which would keep the sound from starting
+	const bool soundsPaused = _soundsPaused;
+	const byte digiSndMode = _digiSndMode;
+	_soundsPaused = false;
+	startTalkSound(_lastVoiceOffset, _lastVoiceLength, DIGI_SND_MODE_TALKIE, &_voiceReplayHandle);
+	_soundsPaused = soundsPaused;
+	_digiSndMode = digiSndMode;
+}
+
+void Sound::finishLearnPause() {
+	_mixer->stopHandle(_voiceReplayHandle);
+	_learnPausePending = false;
+	_vm->stopTalk();
 }
 
 void Sound::setupSound() {

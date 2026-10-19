@@ -839,6 +839,11 @@ static bool isHEGame(const Common::String &gameid) {
 	return false;
 }
 
+// SCUMM v6 talkies whose voice lines end in Sound::processSfxQueues()
+static bool isClassicLearnGame(const Common::String &gameid) {
+	return gameid == "tentacle" || gameid == "samnmax";
+}
+
 static const ExtraGuiOption enableOriginalGUI = {
 	_s("Enable the original GUI and Menu"),
 	_s("Allow the game to use the in-engine graphical interface and the original save/load menu. "
@@ -1040,7 +1045,7 @@ const ExtraGuiOptions ScummMetaEngine::getExtraGuiOptions(const Common::String &
 	if (target.empty() || guiOptions.contains(GAMEOPTION_AUDIO_OVERRIDE)) {
 		options.push_back(audioOverride);
 	}
-	if (target.empty() || isHEGame(gameid)) {
+	if (target.empty() || isHEGame(gameid) || isClassicLearnGame(gameid)) {
 		options.push_back(learnPause);
 		options.push_back(learnTranslate);
 		options.push_back(learnExercise);

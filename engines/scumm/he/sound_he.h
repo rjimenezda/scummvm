@@ -23,12 +23,9 @@
 #define SCUMM_HE_SOUND_HE_H
 
 #include "common/scummsys.h"
-#include "common/hashmap.h"
 #include "common/mutex.h"
-#include "common/ustr.h"
 #include "scumm/sound.h"
 #include "scumm/he/mixer_he.h"
-#include "scumm/he/learn_exercise_he.h"
 #include "audio/audiostream.h"
 
 namespace Scumm {
@@ -258,18 +255,10 @@ public:
 	void setupHEMusicFile();
 	void playVoice(uint32 offset, uint32 length);
 	void playVoiceFile(char *filename);
-	bool isLearnPausePending() const { return _learnPausePending; }
-	// Time left to play when the line ended through an early callback
-	uint32 getLearnPauseDelay() const { return _learnPauseDelay; }
-	void replayLastVoice();
-	void finishLearnPause();
-	const Common::U32String *getLastVoiceTranslation();
-	// Called when a line starts; may blank the exercise word in the talk string
-	void prepareTalk(byte *talkString);
+	uint32 getLearnPauseDelay() const override { return _learnPauseDelay; }
+	void replayLastVoice() override;
 	// Blanks the exercise word in a subtitle string drawn by a script
 	void blankSubtitleText(byte *text);
-	bool getLastVoiceExercise(LearnExercise &exercise);
-	const Common::String &getLastVoiceText() const { return _voiceText; }
 	void stopDigitalSound(int sound);
 	void createSound(int snd1id, int snd2id);
 	int getChannelPosition(int channel);
@@ -285,25 +274,8 @@ private:
 	int _heTalkOffset = 0;
 	bool _stopActorTalkingFlag = false;
 
-	// Language learning mode: pause after each voice line, allow replaying it
-	bool _learnPausePending = false;
+	// Language learning mode
 	uint32 _learnPauseDelay = 0;
-	bool _voiceTranslationsLoaded = false;
-	uint32 _lastVoiceOffset = 0;
-	uint32 _lastVoiceLength = 0;
-	Audio::SoundHandle _voiceReplayHandle;
-	Common::HashMap<uint32, Common::U32String> _voiceTranslations;
-	Common::String _talkText;
-	Common::String _voiceText;
-	uint32 _talkVoiceOffset = 0;
-	uint32 _voiceTextOffset = 0;
-	LearnExercise _talkExercise;
-	bool _talkHasExercise = false;
-	LearnExercise _voiceExercise;
-	bool _voiceHasExercise = false;
-	LearnWordPool _learnWordPool;
-
-	void loadVoiceTranslations();
 	bool _inSoundCallbackFlag = false;
 	int _soundCallbacksQueueSize = 0;
 	int _soundAlreadyInQueueCount = 0;
