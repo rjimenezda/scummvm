@@ -92,6 +92,18 @@ English-listening practice for Spanish-speaking kids.
   (`o72_arrayOps` `SO_STRING`) and a script draws it char by char (`readArray`) as sprites. The word is
   blanked in that stored copy. Lines carry `[SPYFOX.8BF]` tags (`GF_HE_LOCALIZED`), which `extractLearnText` skips.
 
+## Batch translation status (2026-10-17)
+Game data for all games is in `/Users/roman/scummvm/humongous/<Game>/`; each finished `learn_translation.tsv`
+is installed there (and in `_games/_out/<game>/learn_translation.es.tsv`).
+- Done (all 17 main adventures): Freddi Fish 1–5, Pajama Sam 1–3, Putt-Putt 1, 2, Zoo, 4, 5, 6, Spy Fox 1–3.
+- Skipped on purpose: mini-game titles (<1k lines), Pajama Sam GTPOAD (no voiced text), Pajama Sam 4 / Putt-Putt 7
+  (non-SCUMM engine).
+- Workflow: `_tools/translation_setup.sh <out> <Template_Name>` splits into 8 chunks → 8 background agents (one per
+  chunk, Castilian Spanish, drop `(PU1)`/`[NAME.123]` markers, translate stage directions) →
+  `_tools/translation_finish.sh <out> "<Humongous Folder>"` validates, strips markers, merges and installs.
+- Newer games prefix lines with `[NAME.123]` tags and older ones with `(PU1)`; they stay in the English column.
+  Pajama Sam 3 has a raw `\x85` (cp1252 "…") in one line; `merge_translation.py` now splits on `\n` only.
+
 ## Open ideas / next steps
 - User-test Pajama Sam with the Spanish file (watch for scripts acting behind the panel,
   lines not pausing, lip-sync after resume, whether the translations fit the voice timing).

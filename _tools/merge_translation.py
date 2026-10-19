@@ -17,13 +17,13 @@ def main():
         sys.exit(__doc__)
     template, output, chunks = sys.argv[1], sys.argv[2], sys.argv[3:]
 
-    rows = open(template, encoding='utf-8').read().splitlines()
+    rows = open(template, encoding='utf-8').read().rstrip('\n').split('\n')
     header, rows = rows[0], [r.split('\t') for r in rows[1:]]
     known = {r[0] for r in rows}
 
     translations, unknown = {}, []
     for chunk in chunks:
-        for line in open(chunk, encoding='utf-8').read().splitlines():
+        for line in open(chunk, encoding='utf-8').read().rstrip('\n').split('\n'):
             if not line.strip():
                 continue
             offset, _, text = line.partition('\t')
