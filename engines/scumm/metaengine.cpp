@@ -839,9 +839,9 @@ static bool isHEGame(const Common::String &gameid) {
 	return false;
 }
 
-// SCUMM v6 talkies whose voice lines end in Sound::processSfxQueues()
+// SCUMM v5/v6 talkies whose voice lines end in Sound::processSfxQueues()
 static bool isClassicLearnGame(const Common::String &gameid) {
-	return gameid == "tentacle" || gameid == "samnmax";
+	return gameid == "atlantis" || gameid == "tentacle" || gameid == "samnmax";
 }
 
 static const ExtraGuiOption enableOriginalGUI = {

@@ -3468,7 +3468,7 @@ void ScummEngine::actorTalk(const byte *msg) {
 
 	convertMessageToString(msg, _charsetBuffer, sizeof(_charsetBuffer));
 
-	if (_game.heversion >= 60 || _game.version == 6)
+	if (_game.heversion >= 60 || _game.version == 5 || _game.version == 6)
 		_sound->prepareTalk(_charsetBuffer);
 
 	// I have commented out this workaround, since it did cause another
@@ -3562,6 +3562,19 @@ void Actor::runActorTalkScript(int f) {
 	} else {
 		startAnimActor(f);
 	}
+}
+
+void ScummEngine::finishLearnTalk() {
+	// After a wait code, classic talk strings can go on with another voiced
+	// line: let the game print it instead of ending the whole string
+	if (_game.heversion == 0 && _haveMsg == 0xFF && _charsetBuffer[_charsetBufPos]) {
+		_sound->stopTalkSound();
+		_sound->_digiSndMode &= ~DIGI_SND_MODE_TALKIE;
+		_talkDelay = 0;
+		return;
+	}
+
+	stopTalk();
 }
 
 void ScummEngine::stopTalk() {

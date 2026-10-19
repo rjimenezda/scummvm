@@ -77,19 +77,20 @@ SoundHE::SoundHE(ScummEngine *parent, Audio::Mixer *mixer, Common::Mutex *mutex)
 void SoundHE::blankSubtitleText(byte *text) {
 	// Some games (e.g. Spy Fox 3) draw subtitles as sprites from a script string
 	// instead of the talk string, possibly one line at a time.
-	bool useTalk = _talkHasExercise;
-	if (!useTalk && !_voiceHasExercise)
+	const bool useTalk = !_talkLines.empty() && _talkLines[0].hasExercise;
+	const LearnLine &line = useTalk ? _talkLines[0] : _voiceLine;
+	if (!line.hasExercise)
 		return;
 
-	const LearnExercise &exercise = useTalk ? _talkExercise : _voiceExercise;
-	const Common::String &sentence = useTalk ? _talkText : _voiceText;
+	const LearnExercise &exercise = line.exercise;
+	const Common::String &sentence = line.text;
 
 	LearnTalkText fragment = extractLearnText(text, _vm->_game.heversion, _vm->_game.features & GF_HE_LOCALIZED);
 	if (fragment.text.empty())
 		return;
 
 	// A string with its own voice code must belong to the current line
-	if (fragment.voiceOffset && fragment.voiceOffset != (useTalk ? _talkVoiceOffset : _voiceTextOffset))
+	if (fragment.voiceOffset && fragment.voiceOffset != line.voiceOffset)
 		return;
 
 	// The word is blanked only when it lies completely within this fragment
@@ -690,7 +691,7 @@ void SoundHE::digitalSoundCallback(int message, int channel, bool earlyCallback)
 			// In the original this was used to prevent an edge case bug
 			// which caused recursive resource accesses/allocations.
 			// I think there's no harm in doing that ourselves too...
-			if (message == HSND_SOUND_ENDED && ConfMan.getBool("learn_pause") && !_voiceText.empty()) {
+			if (message == HSND_SOUND_ENDED && ConfMan.getBool("learn_pause") && !_voiceLine.text.empty()) {
 				// Keep the line "talking" until the learning pause is dismissed.
 				// Voices without text (sighs, yawns...) don't pause.
 				_learnPausePending = true;

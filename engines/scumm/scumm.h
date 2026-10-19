@@ -1363,6 +1363,8 @@ public:
 
 	virtual void actorTalk(const byte *msg);
 	void stopTalk();
+	// Language learning mode: ends the paused voice line
+	void finishLearnTalk();
 	int getTalkingActor();		// Wrapper around VAR_TALK_ACTOR for V1 Maniac
 	void setTalkingActor(int variable);
 

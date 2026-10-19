@@ -160,7 +160,7 @@ public:
 	virtual void finishLearnPause();
 	const Common::U32String *getLastVoiceTranslation();
 	bool getLastVoiceExercise(LearnExercise &exercise);
-	const Common::String &getLastVoiceText() const { return _voiceText; }
+	const Common::String &getLastVoiceText() const { return _voiceLine.text; }
 
 	void saveLoadWithSerializer(Common::Serializer &ser) override;
 	void restoreAfterLoad();
@@ -206,15 +206,17 @@ protected:
 	bool _voiceTranslationsLoaded = false;
 	uint32 _lastVoiceOffset = 0;
 	uint32 _lastVoiceLength = 0;
-	Common::String _voiceText;
-	uint32 _voiceTextOffset = 0;
-	LearnExercise _voiceExercise;
-	bool _voiceHasExercise = false;
-	// The line being prepared, until its voice starts
-	Common::String _talkText;
-	uint32 _talkVoiceOffset = 0;
-	LearnExercise _talkExercise;
-	bool _talkHasExercise = false;
+	// A voiced line and its fill-in-the-blank exercise
+	struct LearnLine {
+		Common::String text;
+		uint32 voiceOffset = 0;
+		LearnExercise exercise;
+		bool hasExercise = false;
+	};
+	LearnLine _voiceLine;
+	// The lines of the talk string being printed, until their voice starts.
+	// SCUMM v5 strings often hold several lines, each with its own voice.
+	Common::Array<LearnLine> _talkLines;
 	Audio::SoundHandle _voiceReplayHandle;
 	Common::HashMap<uint32, Common::U32String> _voiceTranslations;
 	LearnWordPool _learnWordPool;

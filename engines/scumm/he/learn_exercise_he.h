@@ -60,11 +60,13 @@ private:
 };
 
 // Printable text of a talk string, without its control codes.
-// heversion is 0 for classic SCUMM v6 games.
+// heversion is 0 for classic SCUMM v5/v6 games, whose strings can hold several
+// voiced lines: the text stops at the second voice code, at index end.
 struct LearnTalkText {
 	Common::String text;
 	Common::Array<uint> positions; // Index in the talk string of each character of text
 	uint32 voiceOffset;
+	uint end;
 };
 
 // Localized games tag their lines with "[ID]", which the engine never displays

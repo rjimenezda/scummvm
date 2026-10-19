@@ -430,7 +430,7 @@ void Sound::processSfxQueues() {
 
 		// Learn mode: keep the line "talking" until the learning pause is
 		// dismissed. Voices without text don't pause.
-		if (finished && _vm->_game.heversion == 0 && !_vm->_imuseDigital && ConfMan.getBool("learn_pause") && !_voiceText.empty()) {
+		if (finished && _vm->_game.heversion == 0 && !_vm->_imuseDigital && ConfMan.getBool("learn_pause") && !_voiceLine.text.empty()) {
 			_learnPausePending = true;
 			return;
 		}
@@ -1041,67 +1041,81 @@ void Sound::talkSound(uint32 offset, uint32 length, int mode, int channel) {
 
 void Sound::prepareTalk(byte *talkString) {
 	const bool he = _vm->_game.heversion != 0;
-	LearnTalkText talk = extractLearnText(talkString, _vm->_game.heversion, _vm->_game.features & GF_HE_LOCALIZED);
-
-	// Classic DOS games use code page 850, while the learn panel expects Latin-1.
-	// Their fonts draw '`' as a quotation mark. Both keep the text's length.
-	if (!he) {
-		talk.text = Common::U32String(talk.text, Common::kDos850).encode(Common::kISO8859_1);
-		for (uint i = 0; i < talk.text.size(); i++) {
-			if (talk.text[i] == '`')
-				talk.text.setChar('"', i);
-		}
-	}
-
-	debug(1, "Sound: Talk text for voice %d \"%s\"", talk.voiceOffset, talk.text.c_str());
-
-	_talkHasExercise = false;
-	_talkText = talk.text;
-	_talkVoiceOffset = talk.voiceOffset;
-	if (talk.text.empty())
-		return;
-
-	if (!ConfMan.getBool("learn_pause") || !ConfMan.getBool("learn_exercise")) {
-		_learnWordPool.addSentence(talk.text);
-		return;
-	}
+	const bool exercises = ConfMan.getBool("learn_pause") && ConfMan.getBool("learn_exercise");
 
 	// The translation file also feeds the pool of words used as wrong choices
-	if (!_voiceTranslationsLoaded)
+	if (exercises && !_voiceTranslationsLoaded)
 		loadVoiceTranslations();
 
-	_learnWordPool.addSentence(talk.text);
-	if (!talk.voiceOffset)
-		return;
+	_talkLines.clear();
+	for (uint start = 0; talkString[start];) {
+		LearnTalkText talk = extractLearnText(talkString + start, _vm->_game.heversion, _vm->_game.features & GF_HE_LOCALIZED);
 
-	_talkHasExercise = buildLearnExercise(talk.text, talk.voiceOffset, _learnWordPool, _talkExercise);
-	if (!_talkHasExercise)
-		return;
+		// Classic DOS games use code page 850, while the learn panel expects Latin-1.
+		// Their fonts draw '`' as a quotation mark. Both keep the text's length.
+		if (!he) {
+			talk.text = Common::U32String(talk.text, Common::kDos850).encode(Common::kISO8859_1);
+			for (uint i = 0; i < talk.text.size(); i++) {
+				if (talk.text[i] == '`')
+					talk.text.setChar('"', i);
+			}
+		}
 
-	debug(1, "Sound: Blanking \"%s\"", _talkExercise.answer.c_str());
+		debug(1, "Sound: Talk text for voice %d \"%s\"", talk.voiceOffset, talk.text.c_str());
 
-	// Blank the word in the game's own subtitle too. Spaces are used since
-	// the HE fonts draw '_' and '-' at inconsistent heights.
-	for (uint i = 0; i < _talkExercise.answer.size(); i++)
-		talkString[talk.positions[_talkExercise.blankStart + i]] = ' ';
+		if (!talk.text.empty()) {
+			LearnLine line;
+			line.text = talk.text;
+			line.voiceOffset = talk.voiceOffset;
+			_learnWordPool.addSentence(talk.text);
+
+			if (exercises && talk.voiceOffset)
+				line.hasExercise = buildLearnExercise(talk.text, talk.voiceOffset, _learnWordPool, line.exercise);
+
+			if (line.hasExercise) {
+				debug(1, "Sound: Blanking \"%s\"", line.exercise.answer.c_str());
+
+				// Blank the word in the game's own subtitle too. Spaces are used since
+				// the HE fonts draw '_' and '-' at inconsistent heights.
+				for (uint i = 0; i < line.exercise.answer.size(); i++)
+					talkString[start + talk.positions[line.exercise.blankStart + i]] = ' ';
+			}
+
+			_talkLines.push_back(line);
+		}
+
+		if (!talk.end)
+			break;
+		start += talk.end;
+	}
 }
 
 void Sound::startLearnVoice(uint32 offset, uint32 length) {
 	_lastVoiceOffset = offset;
 	_lastVoiceLength = length;
-	_voiceHasExercise = _talkHasExercise;
-	_voiceExercise = _talkExercise;
-	_voiceText = _talkText;
-	_voiceTextOffset = _talkVoiceOffset;
-	_talkHasExercise = false;
-	_talkText.clear();
+	_voiceLine = LearnLine();
+
+	uint i = 0;
+	while (i < _talkLines.size() && _talkLines[i].voiceOffset != offset)
+		i++;
+
+	// HE games may play another voice than the one in the talk string (localized versions)
+	if (i == _talkLines.size() && _vm->_game.heversion && !_talkLines.empty())
+		i = 0;
+
+	// A voice without text, like a grunt before the next line of the string
+	if (i == _talkLines.size())
+		return;
+
+	_voiceLine = _talkLines[i];
+	_talkLines.erase(_talkLines.begin(), _talkLines.begin() + i + 1);
 }
 
 bool Sound::getLastVoiceExercise(LearnExercise &exercise) {
-	if (!ConfMan.getBool("learn_exercise") || !_voiceHasExercise)
+	if (!ConfMan.getBool("learn_exercise") || !_voiceLine.hasExercise)
 		return false;
 
-	exercise = _voiceExercise;
+	exercise = _voiceLine.exercise;
 	return true;
 }
 
@@ -1164,7 +1178,7 @@ void Sound::replayLastVoice() {
 void Sound::finishLearnPause() {
 	_mixer->stopHandle(_voiceReplayHandle);
 	_learnPausePending = false;
-	_vm->stopTalk();
+	_vm->finishLearnTalk();
 }
 
 void Sound::setupSound() {

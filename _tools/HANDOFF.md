@@ -72,8 +72,22 @@ English-listening practice for Spanish-speaking kids.
   `scumm_lines.py _games/dott_en/dott -o _games/_out/dott/lines_en.csv --translate _games/dott_es --tsv _games/_out/dott/learn_translation.tsv`,
   then copy the TSV into `_games/dott_en/dott/`. The 91 unmatched offsets have no text in either version.
 
+## Indiana Jones and the Fate of Atlantis (SCUMM v5)
+- English CD (GOG): `/Users/roman/scummvm/Indiana Jones and the Fate of Atlantis` (target `atlantis`), translation installed there.
+  Spanish source is the **floppy** (`.../Indiana Jones and the secret of atlantis`): no speech, so no talkie offsets.
+- `scumm_lines.py --translate` falls back to matching by script position when the other version has no speech:
+  strings per block (room + SCRP index / LSCR number / ENCD / EXCD / object VERB), found after `0x0F` (print text)
+  or `0x27 0x01|0x81` (stringOps loadString = dialog choices). Equal-count blocks are zipped; others are aligned
+  (Needleman-Wunsch) with a word-association lexicon learnt from the zipped pairs. A recording spans wait codes
+  until the next talkie code. Identical English text reuses translations.
+- Floppy inserts names/numbers through codes 4-7 (lost in the text), and the CD adds a few lines: 82 lines are
+  hand-translated in `_games/_out/atlantis/manual.tsv`, applied over `learn_translation.tsv` → `learn_translation.es.tsv`.
+- Engine: Indy4 CD separates words with byte 0x10 (read as a space). v5 print strings hold several voiced
+  segments (wait code 3 + new talkie code): `Sound::_talkLines` keeps one `LearnLine` per segment, `startLearnVoice()`
+  picks it by offset, and `ScummEngine::finishLearnTalk()` lets the string go on instead of `stopTalk()`.
+
 ## Tools (`_tools/`)
-- `scumm_lines.py GAME_DIR [-o lines.csv] [--tsv file.tsv] [--translate OTHER_GAME_DIR]`: same for SCUMM v6
+- `scumm_lines.py GAME_DIR [-o lines.csv] [--tsv file.tsv] [--translate OTHER_GAME_DIR]`: same for SCUMM v5/v6
   talkies (reads the XOR'd `.001`); `--translate` fills the translations from another language version.
 - `he_lines.py GAME_DIR [-o lines.csv] [--wav DIR] [--tsv template.tsv]`: lists every voiced line
   (offset, length, uses, text), exports WAVs, writes a translation template. Handles XOR 0x69, `.he1`/`.(a)`,

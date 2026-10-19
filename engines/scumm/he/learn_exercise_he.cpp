@@ -172,11 +172,12 @@ bool LearnWordPool::pickDecoys(const Common::String &answer, uint32 seed, Common
 }
 
 LearnTalkText extractLearnText(const byte *msg, int heversion, bool localized) {
-	// Argument sizes of the 0xFF control codes in SCUMM v6 and HE60-71 strings
+	// Argument sizes of the 0xFF control codes in SCUMM v5/v6 and HE60-71 strings
 	static const int classicArgs[16] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 14, 0, 2, 2, 3, 0 };
 	const byte modernCode = heversion >= 80 ? 127 : 64;
 	LearnTalkText result;
 	result.voiceOffset = 0;
+	bool hasVoice = false;
 
 	uint pos = 0;
 	while (msg[pos]) {
@@ -205,9 +206,13 @@ LearnTalkText extractLearnText(const byte *msg, int heversion, bool localized) {
 			if (code == 1 || code == 3) {
 				result.text += ' ';
 				result.positions.push_back(pos);
-			} else if (code == 10 && !result.voiceOffset) {
+			} else if (code == 10) {
+				// Another voice: its line starts here
+				if (hasVoice)
+					break;
 				const byte *b = msg + pos + 2;
 				result.voiceOffset = b[0] | (b[1] << 8) | (b[4] << 16) | (b[5] << 24);
+				hasVoice = true;
 			}
 			// The arguments are binary and may contain zero bytes
 			pos += 2 + (code < ARRAYSIZE(classicArgs) ? classicArgs[code] : 0);
@@ -217,13 +222,16 @@ LearnTalkText extractLearnText(const byte *msg, int heversion, bool localized) {
 			if (msg[pos])
 				pos++;
 		} else {
-			if (c >= 32 || c == '\t') {
-				result.text += c == '\t' ? ' ' : (char)c;
+			// Indy4 CD separates many words with 0x10, drawn as a space
+			if (c >= 32 || c == '\t' || !heversion) {
+				result.text += c < 32 ? ' ' : (char)c;
 				result.positions.push_back(pos);
 			}
 			pos++;
 		}
 	}
+
+	result.end = pos;
 
 	// Trim, keeping positions in sync
 	uint first = 0, last = result.text.size();
